@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Background",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "args": [
+                "GQCNN-2.0", // GQCNN-4.0-PJ GQCNN-4.0-SUCTION FC-GQCNN-4.0-PJ GQCNN-2.0 FC-GQCNN-4.0-PJ
+                "--depth_image",
+                "/home/vladislav/gqcnn/fmp-tools/0003_depth.npy",
+                // "data/examples/single_object/primesense/depth_0.npy",
+                "--segmask",
+                // "/home/vladislav/gqcnn/5graycustom_thresh_mask.png",
+                // "data/examples/single_object/primesense/segmask_0.png",
+                "/home/vladislav/gqcnn/fmp-tools/Segmask_simple.png",
+                "--camera_intr",
+                // "data/calib/primesense/primesense.intr"
+                "data/calib/realsense/realsense.intr",
+                "--config_filename",
+                "cfg/examples/replication/dex-net_2.0.yaml"
+                // "cfg/examples/replication/dex-net_4.0_pj.yaml"
+            ],
+            "name": "Python: Policy",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

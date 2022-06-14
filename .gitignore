@@ -90,3 +90,7 @@ ENV/
 *~
 .#*
 #*
+
+fmp-tools/archive/
+*settings.json
+=

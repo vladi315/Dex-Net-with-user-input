@@ -28,31 +28,30 @@ Author
 ------
 Jeff Mahler
 """
-from abc import ABC, abstractmethod
 import copy
-import pickle as pkl
 import math
 import os
+import pickle as pkl
+from abc import ABC, abstractmethod
 from time import time
 
+import autolab_core.utils as utils
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage.filters as snf
 import scipy.stats as ss
+from autolab_core import (BinaryImage, CameraIntrinsics, ColorImage,
+                          DepthImage, Logger, Point, RgbdImage,
+                          SegmentationImage)
 from sklearn.mixture import GaussianMixture
-
-import autolab_core.utils as utils
-from autolab_core import (Point, Logger, BinaryImage, ColorImage,
-                          DepthImage, RgbdImage, SegmentationImage,
-                          CameraIntrinsics)
 from visualization import Visualizer2D as vis
 
-from ..constraint_fn import GraspConstraintFnFactory
-from ..grasp import Grasp2D, SuctionPoint2D, MultiSuctionPoint2D
-from ..grasp_quality_function import (GraspQualityFunctionFactory,
-                                      GQCnnQualityFunction)
-from ..image_grasp_sampler import ImageGraspSamplerFactory
 from ...utils import GeneralConstants, NoValidGraspsException
+from ..constraint_fn import GraspConstraintFnFactory
+from ..grasp import Grasp2D, MultiSuctionPoint2D, SuctionPoint2D
+from ..grasp_quality_function import (GQCnnQualityFunction,
+                                      GraspQualityFunctionFactory)
+from ..image_grasp_sampler import ImageGraspSamplerFactory
 
 
 class RgbdImageState(object):
@@ -255,7 +254,7 @@ class GraspingPolicy(Policy):
         """
         # Store parameters.
         self._config = config
-        self._gripper_width = 0.05
+        self._gripper_width = 0.05 # TODO:edit to 0.05
         if "gripper_width" in config:
             self._gripper_width = config["gripper_width"]
 
@@ -303,7 +302,7 @@ class GraspingPolicy(Policy):
         metric_type = self._metric_config["type"]
         self._grasp_quality_fn = GraspQualityFunctionFactory.quality_function(
             metric_type, self._metric_config)
-
+        test = 1
     @property
     def config(self):
         """Returns the policy configuration parameters.

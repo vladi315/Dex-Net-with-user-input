@@ -1,8 +1,8 @@
 # policy params
 policy:
   # optimization params
-  num_seed_samples: 250
-  num_gmm_samples: 50
+  num_seed_samples: 250 
+  num_gmm_samples: 50 
   num_iters: 3
   gmm_refit_p: 0.25
   gmm_component_frac: 0.4
@@ -20,7 +20,7 @@ policy:
     # antipodality
     friction_coef: 0.8
     depth_grad_thresh: 0.0025
-    depth_grad_gaussian_sigma: 1.0
+    depth_grad_gaussian_sigma: 5.0
     downsample_rate: 2
     max_rejection_samples: 4000
 
@@ -43,21 +43,21 @@ policy:
     type: gqcnn
     gqcnn_model: models/GQCNN-2.0
 
-    crop_height: 96
-    crop_width: 96
+    crop_height: 192 #96
+    crop_width: 192
 
   # visualization
   vis:
     grasp_sampling : 0
-    tf_images: 0
-    grasp_candidates: 0
-    elite_grasps: 0
-    grasp_ranking: 0
-    grasp_plan: 0
+    tf_images: 1
+    grasp_candidates: 1
+    elite_grasps: 1
+    grasp_ranking: 1
+    grasp_plan: 1
     final_grasp: 1
 
-    vmin: 0.0
-    vmax: 1.0
+    vmin: 0.65  
+    vmax: 0.8 
 
     k: 25
 

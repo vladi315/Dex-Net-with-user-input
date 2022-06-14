@@ -183,6 +183,11 @@ if __name__ == "__main__":
     camera_intr = CameraIntrinsics.load(camera_intr_filename)
 
     # Read images.
+    #TODO: REMOVE
+    # test_filename = "data/examples/single_object/primesense/depth_0.npy"
+    # depth_data_test = np.load(test_filename)
+    # depth_im_test = DepthImage(depth_data_test, frame=camera_intr.frame)
+
     depth_data = np.load(depth_im_filename)
     depth_im = DepthImage(depth_data, frame=camera_intr.frame)
     color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
@@ -255,8 +260,8 @@ if __name__ == "__main__":
 
     # Vis final grasp.
     if camera_intr._frame == "realsense":
-        policy_config["vis"]["vmin"] = 0.4
-        policy_config["vis"]["vmax"] = 0.6
+        policy_config["vis"]["vmin"] = 0.65
+        policy_config["vis"]["vmax"] = 0.8
 
     if policy_config["vis"]["final_grasp"]:
         vis.figure(size=(10, 10))

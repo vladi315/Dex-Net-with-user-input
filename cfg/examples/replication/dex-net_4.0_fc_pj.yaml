@@ -30,10 +30,16 @@ policy:
     actions_3d: 0
     affordance_map: 0
   vis:
+    grasp_sampling : 0
+    tf_images: 1
+    grasp_candidates: 1
+    elite_grasps: 1
+    grasp_ranking: 1
+    grasp_plan: 1
     final_grasp: 1
 
-    vmin: 0.0
-    vmax: 1.0
+    vmin: 0.65
+    vmax: 0.8
 
 # image pre-processing before input to policy
 inpaint_rescale_factor: 0.5
