@@ -8,42 +8,30 @@ from plantcv import plantcv as pcv
 # plant_img = "/home/vladislav/Downloads/0000_image_obj.png"
 # b_img = "/home/vladislav/Downloads/0000_image.png"
 
+def main():
+    
+    # Parse args.
+    parser = argparse.ArgumentParser(
+        description="Subtract background from a (pink) colored background")
+    parser.add_argument("--png_image",
+                        type=str,
+                        default=None,
+                        help="path to the .png image")
+    args = parser.parse_args()
+    png_path = args.png_image
+    img, _, _ = pcv.readimage(filename=png_path) 
 
-pcv.params.debug = "print"
+    # select "print" to save images, "plot to display them"
+    pcv.params.debug = "print" 
 
-img, path, filename = pcv.readimage(filename="/home/vladislav/gqcnn/fmp-tools/0004_image.png") #0004_image.png
+    # apply hsv filters
+    h = pcv.rgb2gray_hsv(rgb_img=img, channel='h')
+    s = pcv.rgb2gray_hsv(rgb_img=img, channel='s')
+    v = pcv.rgb2gray_hsv(rgb_img=img, channel='v')
 
-# img, path, filename = pcv.readimage(filename="/home/vladislav/Downloads/alllight/alllighthingPollock/0000_image.png")
-# img_bkgrd, bkgrd_path, bkgrd_filename = pcv.readimage(filename="/home/vladislav/Downloads/alllight/alllighthingPollockOnlyBackground/0000_image.png")
+    # select filter that provides best contrast
+    h_thresh, _ = pcv.threshold.custom_range(img=h, lower_thresh=[40], upper_thresh=[130], channel='gray')
+    h_mblur = pcv.median_blur(gray_img=h_thresh, ksize=5)
 
-# Create a foreground mask from both images 
-# fgmask = pcv.background_subtraction(foreground_image=img, background_image=img_bkgrd)
-
-# 
-h = pcv.rgb2gray_hsv(rgb_img=img, channel='h')
-s = pcv.rgb2gray_hsv(rgb_img=img, channel='s')
-v = pcv.rgb2gray_hsv(rgb_img=img, channel='v')
-
-# best_contrast = h
-
-# h_thresh = pcv.threshold.binary(gray_img=h, threshold=130, max_value=255, object_type='dark')
-h_thresh, _ = pcv.threshold.custom_range(img=h, lower_thresh=[40], upper_thresh=[130], channel='gray')
-
-h_mblur = pcv.median_blur(gray_img=h_thresh, ksize=5)
-
-# s_thresh = pcv.threshold.binary(gray_img=s, threshold=50, max_value=255, object_type='light')
-# s_mblur = pcv.median_blur(gray_img=s_thresh, ksize=5)
-
-# s_thresh = pcv.threshold.binary(gray_img=s, threshold=85, max_value=255, object_type='light')
-# s_mblur = pcv.median_blur(gray_img=s_thresh, ksize=5)
-# gaussian_img = pcv.gaussian_blur(img=s_thresh, ksize=(5, 5), sigma_x=0, sigma_y=None)
-
-
-# b = pcv.rgb2gray_lab(rgb_img=img, channel='b')
-# b_thresh = pcv.threshold.binary(gray_img=b, threshold=160, max_value=255, object_type='light')
-# bs = pcv.logical_or(bin_img1=s_mblur, bin_img2=b_thresh)
-
-
-
-
-test=1
+if __name__ == "__main__":
+    main()
