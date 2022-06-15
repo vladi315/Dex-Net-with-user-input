@@ -1,4 +1,4 @@
-This repo is a fork of the Berkeley dex-net GQ-CNN repo of berkeley. For their documentation and code see:
+This repo is a fork of the Berkeley AUTOLAB's dex-net GQ-CNN. For their documentation and code see:
 <https://berkeleyautomation.github.io/dex-net/>
 <https://berkeleyautomation.github.io/gqcnn/>
 <https://github.com/BerkeleyAutomation/gqcnn>
@@ -21,11 +21,15 @@ We highly recommend using a Python environment management system, in particular 
 
 The pip installation is intended for users who are only interested in 1) Training GQ-CNNs or 2) Grasp planning on saved RGBD images, not interfacing with a physical robot. If you have intentions of using GQ-CNNs for grasp planning on a physical robot, we suggest you install as a ROS package.
 
+##### Troubleshooting
+
+If using a VM, ensure that CPU settings of the VM are set to 'host' to be able to install tensorflow (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
+
 ### 1. Clone the repository
 
 Clone or download the project from Github.
 
-    git clone <https://github.com/BerkeleyAutomation/gqcnn.git>
+    git clone <git@code.siemens.com:FMP_Analytics/edgeapps-for-shop4cf/dex-net.git>
 
 ### 2. Run pip installation
 
@@ -43,9 +47,17 @@ WIth the virtualenv activated, run from the gqcnn directory:
 
 Alternatively there is a launch.json that can be used to run the model in vscode on custom images. Make sure to specify the right python interpreter of the virtualenv.
 
-## Troubleshooting
+Note that --segmask and --config_filename are optional parameters.
 
-If using a VM, ensure that CPU settings of the VM are set to 'host' to be able to install tensorflow (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
+## Generate training masks with color background subtractions
+
+To generate optional segmentation masks by subtracting a pink background, run
+
+    python fmp-tools/background_subtraction.py --png_image <image path>
+
+To convert a .png image to the .npy format that gq-cnn requires, run png_to_npy_converter.py
+
+    python fmp-tools/png_to_npy_converter.py --png_image <image path>
 
 ## Reference
 
