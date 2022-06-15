@@ -25,7 +25,7 @@ The pip installation is intended for users who are only interested in 1) Trainin
 
 ##### Troubleshooting
 
-If using a VM, ensure that Processor type is set to 'host' in the Proxmox VM settings. This enables CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
+If you run into issues with the tensorflow installation using a VM, set the Processor type to 'host' in the Proxmox VM settings. This enables CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
 
 ![VM settings](./README_VM_settings.PNG)
 
