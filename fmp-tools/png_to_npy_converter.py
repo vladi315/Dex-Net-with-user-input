@@ -1,6 +1,4 @@
-
 import argparse
-
 import numpy as np
 from PIL import Image
 
@@ -70,7 +68,7 @@ def main():
                         default=None,
                         help="path to the .png image")
     args = parser.parse_args()
-    
+
     png_path = args.png_image
     npy_path = png_path.strip('.png').strip('_raw') # png_path[:-8] + '.npy'
 

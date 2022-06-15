@@ -1,37 +1,45 @@
-from plantcv import plantcv as pcv
+import argparse
 
-# Set global debug behavior to None (default), "print" (to file), 
-# or "plot" (Jupyter Notebooks or X11)
+import cv2 as cv
 
-# pcv.params.debug = "plot"
-
-# plant_img = "/home/vladislav/Downloads/0000_image_obj.png"
-# b_img = "/home/vladislav/Downloads/0000_image.png"
 
 def main():
     
     # Parse args.
     parser = argparse.ArgumentParser(
-        description="Subtract background from a (pink) colored background")
+        description="Subtract background from a colored background")
     parser.add_argument("--png_image",
                         type=str,
                         default=None,
                         help="path to the .png image")
     args = parser.parse_args()
     png_path = args.png_image
-    img, _, _ = pcv.readimage(filename=png_path) 
+    img = cv.imread(png_path)
+    img = cv.cvtColor(img, cv.COLOR_RGB2HSV)
 
-    # select "print" to save images, "plot to display them"
-    pcv.params.debug = "print" 
+    h,s,v = cv.split(img)
+    cv.imshow('h channel', h)
+    cv.imshow('s channel', s)
+    cv.imshow('v channel', v)
 
-    # apply hsv filters
-    h = pcv.rgb2gray_hsv(rgb_img=img, channel='h')
-    s = pcv.rgb2gray_hsv(rgb_img=img, channel='s')
-    v = pcv.rgb2gray_hsv(rgb_img=img, channel='v')
+    # h channel provides best contrast for pink background
+    lower_threshold = 40
+    upper_threshold = 130
+    segmentationn_mask = cv.inRange(img,(lower_threshold, 0, 0), (upper_threshold, 255, 255))
 
-    # select filter that provides best contrast
-    h_thresh, _ = pcv.threshold.custom_range(img=h, lower_thresh=[40], upper_thresh=[130], channel='gray')
-    h_mblur = pcv.median_blur(gray_img=h_thresh, ksize=5)
+    # invert the image
+    segmentationn_mask = cv.bitwise_not(segmentationn_mask)
+
+    # apply blur filter to remove noise
+    segmentationn_mask = cv.medianBlur(segmentationn_mask, ksize=5)
+
+    # save image
+    file_name = png_path.strip('.png') + '_segmask.png'
+    cv.imwrite(file_name, segmentationn_mask)
+
+    # show image
+    cv.imshow('segmentation mask', segmentationn_mask)
+    cv.waitKey(0)
 
 if __name__ == "__main__":
     main()
