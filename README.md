@@ -27,6 +27,8 @@ The pip installation is intended for users who are only interested in 1) Trainin
 
 If using a VM, ensure that CPU settings of the VM are set to 'host' to be able CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
 
+![VM settings](https://code.siemens.com/FMP_Analytics/edgeapps-for-shop4cf/dex-net/README_VM_settings.PNG)
+
 ### 1. Clone the repository
 
 Clone or download the project from Github.
