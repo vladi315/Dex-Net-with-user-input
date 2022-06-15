@@ -1,6 +1,7 @@
 
+import argparse
+
 import numpy as np
-from autolab_core import CameraIntrinsics, DepthImage
 from PIL import Image
 
 
@@ -61,8 +62,17 @@ def save_as_npy(npy_array, npy_path):
 
 
 def main():
-    png_path = '/home/vladislav/gqcnn/fmp-tools/0003_depth_raw.png'
-    npy_path = png_path[:-8] + '.npy'
+    # Parse args.
+    parser = argparse.ArgumentParser(
+        description="Convert a depth image from .png to .npy format that is required by dex-net")
+    parser.add_argument("--png_image",
+                        type=str,
+                        default=None,
+                        help="path to the .png image")
+    args = parser.parse_args()
+    
+    png_path = args.png_image
+    npy_path = png_path.strip('.png').strip('_raw') # png_path[:-8] + '.npy'
 
     # convert png to npy format of dexnet
     npy_array = convert_png_to_npy(png_path)
