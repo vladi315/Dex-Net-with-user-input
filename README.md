@@ -23,7 +23,7 @@ The pip installation is intended for users who are only interested in 1) Trainin
 
 ##### Troubleshooting
 
-If using a VM, ensure that CPU settings of the VM are set to 'host' to be able to install tensorflow (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
+If using a VM, ensure that CPU settings of the VM are set to 'host' to be able CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
 
 ### 1. Clone the repository
 
