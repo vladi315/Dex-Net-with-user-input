@@ -1,6 +1,8 @@
 This repo is a fork of the Berkeley AUTOLAB's dex-net GQ-CNN. For their documentation and code see:
 <https://berkeleyautomation.github.io/dex-net/>
+
 <https://berkeleyautomation.github.io/gqcnn/>
+
 <https://github.com/BerkeleyAutomation/gqcnn>
 
 ## Prerequisites
