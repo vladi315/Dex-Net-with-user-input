@@ -1,4 +1,5 @@
 This repo is a fork of the Berkeley AUTOLAB's dex-net GQ-CNN. For their documentation and code see:
+
 <https://berkeleyautomation.github.io/dex-net/>
 
 <https://berkeleyautomation.github.io/gqcnn/>
@@ -33,7 +34,7 @@ If you run into issues with the tensorflow installation using a VM, set the Proc
 
 Clone or download the project from Github.
 
-    git clone <git@code.siemens.com:FMP_Analytics/edgeapps-for-shop4cf/dex-net.git>
+    git clone git@code.siemens.com:FMP_Analytics/edgeapps-for-shop4cf/dex-net.git
 
 ### 2. Run pip installation
 
