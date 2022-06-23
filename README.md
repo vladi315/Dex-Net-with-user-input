@@ -20,15 +20,12 @@ The gqcnn package has only been tested with Ubuntu 12.04, Ubuntu 14.04 and Ubunt
 
 We highly recommend using a Python environment management system, in particular Virtualenv, with the Pip and ROS installations. Note: Several users have encountered problems with dependencies when using Conda.
 
+    virtualenv -p /usr/bin/python3.7 ~/virtualenv/dex-net
+    source ~/virtualenv/dex-net/bin/activate
+
 ## Pip Installation
 
 The pip installation is intended for users who are only interested in 1) Training GQ-CNNs or 2) Grasp planning on saved RGBD images, not interfacing with a physical robot. If you have intentions of using GQ-CNNs for grasp planning on a physical robot, we suggest you install as a ROS package.
-
-##### Troubleshooting
-
-If you run into issues with the tensorflow installation using a VM, set the Processor type to 'host' in the Proxmox VM settings. This enables CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
-
-![VM settings](./README_VM_settings.PNG)
 
 ### 1. Clone the repository
 
@@ -44,6 +41,12 @@ Change directories into the gqcnn repository and run the pip installation.
 
 This will install gqcnn in your current virtual environment.
 
+##### Troubleshooting
+
+If you run into issues with the tensorflow installation using a VM, set the Processor type to 'host' in the Proxmox VM settings. This enables CPU accelerators that are required for tensorflow versions > 1.5 (see <https://forum.proxmox.com/threads/avx2-and-avx-flags-on-vm.87808/>)
+
+![VM settings](./README_VM_settings.PNG)
+
 ## Inference
 
 WIth the virtualenv activated, run from the gqcnn directory:
@@ -54,15 +57,17 @@ Alternatively there is a launch.json that can be used to run the model in vscode
 
 Note that --segmask and --config_filename are optional parameters.
 
+## Convert realsense depth images format required by dex-net
+
+To convert a .png image recorded with the realsense camera to the .npy format that gq-cnn requires, run png_to_npy_converter.py
+
+    python fmp-tools/png_to_npy_converter.py --png_image <image path>
+
 ## Generate training masks with color background subtractions
 
 To generate optional segmentation masks by subtracting a pink background, run
 
     python fmp-tools/background_subtraction.py --png_image <image path>
-
-To convert a .png image to the .npy format that gq-cnn requires, run png_to_npy_converter.py
-
-    python fmp-tools/png_to_npy_converter.py --png_image <image path>
 
 ## Reference
 

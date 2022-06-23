@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Background",
+            "name": "Python: Current File",
             "type": "python",
             "request": "launch",
             "program": "${file}",
@@ -14,20 +14,20 @@
         },
         {
             "args": [
-                "GQCNN-2.0", // GQCNN-4.0-PJ GQCNN-4.0-SUCTION FC-GQCNN-4.0-PJ GQCNN-2.0 FC-GQCNN-4.0-PJ
+                "GQCNN-4.0-SUCTION", // GQCNN-4.0-PJ GQCNN-4.0-SUCTION FC-GQCNN-4.0-PJ GQCNN-2.0 FC-GQCNN-4.0-PJ
                 "--depth_image",
-                "/home/vladislav/gqcnn/fmp-tools/0003_depth.npy",
+                "/home/vladislav/gqcnn/fmp-tools/0000_depth.npy",
                 // "data/examples/single_object/primesense/depth_0.npy",
                 "--segmask",
                 // "/home/vladislav/gqcnn/5graycustom_thresh_mask.png",
                 // "data/examples/single_object/primesense/segmask_0.png",
-                "/home/vladislav/gqcnn/fmp-tools/Segmask_simple.png",
+                "/home/vladislav/gqcnn/fmp-tools/Segmask_simple2.png",
                 "--camera_intr",
                 // "data/calib/primesense/primesense.intr"
                 "data/calib/realsense/realsense.intr",
-                "--config_filename",
-                "cfg/examples/replication/dex-net_2.0.yaml"
-                // "cfg/examples/replication/dex-net_4.0_pj.yaml"
+                // "--config_filename",
+                // "cfg/examples/replication/dex-net_2.0.yaml"
+                // "cfg/examples/replication/dex-net_4.0_suction.yaml"
             ],
             "name": "Python: Policy",
             "type": "python",
