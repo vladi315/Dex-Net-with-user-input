@@ -1,4 +1,5 @@
 import argparse
+
 import numpy as np
 from PIL import Image
 
@@ -59,17 +60,8 @@ def save_as_npy(npy_array, npy_path):
     np.save(npy_path, npy_array)
 
 
-def main():
-    # Parse args.
-    parser = argparse.ArgumentParser(
-        description="Convert a depth image from .png to .npy format that is required by dex-net")
-    parser.add_argument("--png_image",
-                        type=str,
-                        default=None,
-                        help="path to the .png image")
-    args = parser.parse_args()
+def main(png_path):
 
-    png_path = args.png_image
     npy_path = png_path.strip('.png').strip('_raw') # png_path[:-8] + '.npy'
 
     # convert png to npy format of dexnet
@@ -79,8 +71,16 @@ def main():
     show_npy_image(npy_array)
     # save
     save_as_npy(npy_array, npy_path)
-
     return 0
 
 if __name__ == "__main__":
-    main()
+    # Parse args
+    parser = argparse.ArgumentParser(
+        description="Convert a depth image from .png to .npy format that is required by dex-net")
+    parser.add_argument("--png_image",
+                        type=str,
+                        default=None,
+                        help="path to the .png image")
+    args = parser.parse_args()
+    png_path = args.png_image
+    main(png_path)
