@@ -38,6 +38,13 @@ def generate_mask_from_tracepen_pos(H, W, points_2d, img_path, mask_radius, dept
     file_name = img_path.strip('.png') + '_tracepen_mask.png'
     cv2.imwrite(file_name, mask_image)
 
+def project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W):
+    pose = np.loadtxt(pose_path)
+    pen_files = sorted(glob.glob(os.path.join(pen_folder, "*")))
+    pen_points = [np.loadtxt(f) for f in pen_files]
+    tracepen_point_2d = projection(pose, pen_points, K, H, W)
+    return tracepen_point_2d
+
 if __name__ == '__main__':
     # Realsense 435i intrinsics
     K = np.array([907.103516, 0.0,  649.697702, 0.0, 907.77832, 383.828184, 0.0, 0.0, 1.0]).reshape(3,3)
@@ -47,17 +54,14 @@ if __name__ == '__main__':
     img_path = "/home/vladislav/Downloads/housing_22_06/data/0000_image.png"
     img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     pose_path = "/home/vladislav/Downloads/housing_22_06/data/0000_pose.txt"
-    pose = np.loadtxt(pose_path)
     pen_folder = "/home/vladislav/Downloads/housing_22_06/points/data"
-    pen_files = sorted(glob.glob(os.path.join(pen_folder, "*")))
-    pen_points = [np.loadtxt(f) for f in pen_files]
-    points_2d = projection(pose, pen_points, K, H, W)  
-    print("final points: ", points_2d)
+    tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W)
+    print("final points: ", tracepen_point_2d)
     plt.imshow(img)
-    plt.scatter(points_2d[:,0], points_2d[:,1], c="red")
+    plt.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
     plt.show()
 
     # generate mask around tracepen points
     mask_radius = 0.03
     depth = 0.7 # TODO: refine this by calculated relative distance camera to tracepen point
-    generate_mask_from_tracepen_pos(H, W, points_2d, img_path, mask_radius, depth)
+    generate_mask_from_tracepen_pos(H, W, tracepen_point_2d, img_path, mask_radius, depth)
