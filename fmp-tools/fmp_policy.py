@@ -46,6 +46,9 @@ from gqcnn.grasping import (CrossEntropyRobustGraspingPolicy,
 from gqcnn.utils import GripperMode
 from visualization import Visualizer2D as vis
 
+from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
+                                      convert_png_to_npy)
+
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
 
@@ -188,7 +191,14 @@ if __name__ == "__main__":
     # depth_data_test = np.load(test_filename)
     # depth_im_test = DepthImage(depth_data_test, frame=camera_intr.frame)
 
-    depth_data = np.load(depth_im_filename)
+    # Transform raw realsense png depth to .npy format
+    if depth_im_filename.endswith("depth_raw.png"):
+        depth_data = convert_png_to_npy(depth_im_filename)
+        depth_data = convert_depth_to_dexnet_format(depth_data)
+
+    else:
+        depth_data = np.load(depth_im_filename)
+
     depth_im = DepthImage(depth_data, frame=camera_intr.frame)
     color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
                                     3]).astype(np.uint8),
