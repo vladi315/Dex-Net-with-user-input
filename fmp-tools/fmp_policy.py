@@ -48,6 +48,7 @@ from visualization import Visualizer2D as vis
 
 from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
+from fmp_tracepen_realsense_projection import project_tracepen_points_to_image
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
@@ -81,6 +82,14 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to configuration file to use")
+    parser.add_argument("--pose_path",
+                        type=str,
+                        default=None,
+                        help="path to camera pose file to use")
+    parser.add_argument("--pen_folder",
+                        type=str,
+                        default=None,
+                        help="path to folder containing tracepen points to use")
     parser.add_argument(
         "--fully_conv",
         action="store_true",
@@ -94,6 +103,8 @@ if __name__ == "__main__":
     model_dir = args.model_dir
     config_filename = args.config_filename
     fully_conv = args.fully_conv
+    pose_path = args.pose_path
+    pen_folder = args.pen_folder
 
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
@@ -186,16 +197,10 @@ if __name__ == "__main__":
     camera_intr = CameraIntrinsics.load(camera_intr_filename)
 
     # Read images.
-    #TODO: REMOVE
-    # test_filename = "data/examples/single_object/primesense/depth_0.npy"
-    # depth_data_test = np.load(test_filename)
-    # depth_im_test = DepthImage(depth_data_test, frame=camera_intr.frame)
-
     # Transform raw realsense png depth to .npy format
     if depth_im_filename.endswith("depth_raw.png"):
         depth_data = convert_png_to_npy(depth_im_filename)
         depth_data = convert_depth_to_dexnet_format(depth_data)
-
     else:
         depth_data = np.load(depth_im_filename)
 
@@ -203,6 +208,9 @@ if __name__ == "__main__":
     color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
                                     3]).astype(np.uint8),
                           frame=camera_intr.frame)
+
+    # Optionally read tracepen points and transform them to pixel coordinates
+    tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
 
     # Optionally read a segmask.
     segmask = None
@@ -232,7 +240,7 @@ if __name__ == "__main__":
 
     # Create state.
     rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
-    state = RgbdImageState(rgbd_im, camera_intr, segmask=segmask)
+    state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d)
 
     # Set input sizes for fully-convolutional policy.
     if fully_conv:

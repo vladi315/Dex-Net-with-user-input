@@ -54,15 +54,16 @@ from ..grasp_quality_function import (GQCnnQualityFunction,
 from ..image_grasp_sampler import ImageGraspSamplerFactory
 
 
-class RgbdImageState(object):
-    """State to encapsulate RGB-D images."""
+class RgbdImageState(object, *args):
+    """State to encapsulate RGB-D images and tracepen points."""
 
     def __init__(self,
                  rgbd_im,
                  camera_intr,
                  segmask=None,
                  obj_segmask=None,
-                 fully_observed=None):
+                 fully_observed=None,
+                 tracepen_point_2d = None):
         """
         Parameters
         ----------
@@ -76,12 +77,15 @@ class RgbdImageState(object):
             Segmentation mask for the different objects in the image.
         full_observed : :obj:`object`
             Representation of the fully observed state.
+        tracepen_points_2d : :arr:`np.array` # TODO: check if datatype is right
+            tracepen points projected to pixel coordinates.
         """
         self.rgbd_im = rgbd_im
         self.camera_intr = camera_intr
         self.segmask = segmask
         self.obj_segmask = obj_segmask
         self.fully_observed = fully_observed
+        self.tracepen_point_2d = tracepen_point_2d
 
     def save(self, save_dir):
         """Save to a directory.
@@ -669,7 +673,7 @@ class RobustGraspingPolicy(GraspingPolicy):
         return GraspAction(grasp, q_value, state.rgbd_im.depth)
 
 
-class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
+class CrossEntropyRobustGraspingPolicy(GraspingPolicy, points_2d):
     """Optimizes a set of grasp candidates in image space using the
     cross entropy method.
 
