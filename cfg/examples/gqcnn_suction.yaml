@@ -10,8 +10,8 @@ policy:
   # general params
   deterministic: 1
   gripper_width: 0.05
-  crop_height: 96
-  crop_width: 96
+  crop_height: 192
+  crop_width: 192
 
   # sampling params
   sampling:
@@ -42,16 +42,16 @@ policy:
   # visualization
   vis:
     grasp_sampling : 0
-    tf_images: 0
+    tf_images: 1
     plane: 0
     grasp_candidates: 1
     elite_grasps: 1
     grasp_ranking: 1
-    grasp_plan: 1
+    grasp_plan: 0
     grasp_affordance_map: 0
     final_grasp: 1
 
-    vmin: 0.5
+    vmin: 0.65
     vmax: 0.8
 
     k: 25
@@ -90,7 +90,7 @@ detection:
 
   point_cloud_mask_only: 1
 
-  image_width: 640
-  image_height: 480
+  image_width: 1280
+  image_height: 720
 
   filter_dim: 1
