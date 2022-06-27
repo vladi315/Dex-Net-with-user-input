@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
     # Create state.
     rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
-    state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d)
+    state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
 
     # Set input sizes for fully-convolutional policy.
     if fully_conv:

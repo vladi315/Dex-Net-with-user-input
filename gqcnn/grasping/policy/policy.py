@@ -43,6 +43,7 @@ import scipy.stats as ss
 from autolab_core import (BinaryImage, CameraIntrinsics, ColorImage,
                           DepthImage, Logger, Point, RgbdImage,
                           SegmentationImage)
+from cv2 import sqrt
 from sklearn.mixture import GaussianMixture
 from visualization import Visualizer2D as vis
 
@@ -54,7 +55,7 @@ from ..grasp_quality_function import (GQCnnQualityFunction,
 from ..image_grasp_sampler import ImageGraspSamplerFactory
 
 
-class RgbdImageState(object, *args):
+class RgbdImageState(object):
     """State to encapsulate RGB-D images and tracepen points."""
 
     def __init__(self,
@@ -103,6 +104,7 @@ class RgbdImageState(object, *args):
         segmask_filename = os.path.join(save_dir, "segmask.npy")
         obj_segmask_filename = os.path.join(save_dir, "obj_segmask.npy")
         state_filename = os.path.join(save_dir, "state.pkl")
+        tracepen_point_2d_filename = os.path.join(save_dir, "tracepen_point_2d.pkl")
         self.rgbd_im.color.save(color_image_filename)
         self.rgbd_im.depth.save(depth_image_filename)
         self.camera_intr.save(camera_intr_filename)
@@ -112,6 +114,8 @@ class RgbdImageState(object, *args):
             self.obj_segmask.save(obj_segmask_filename)
         if self.fully_observed is not None:
             pkl.dump(self.fully_observed, open(state_filename, "wb"))
+        if self.tracepen_point_2d is not None:
+            pkl.dump(self.tracepen_point_2d, open(tracepen_point_2d_filename, "wb"))
 
     @staticmethod
     def load(save_dir):
@@ -129,6 +133,7 @@ class RgbdImageState(object, *args):
         camera_intr_filename = os.path.join(save_dir, "camera.intr")
         segmask_filename = os.path.join(save_dir, "segmask.npy")
         obj_segmask_filename = os.path.join(save_dir, "obj_segmask.npy")
+        tracepen_point_2d = os.path.join(save_dir, "tracepen_point_2d.npy")
         state_filename = os.path.join(save_dir, "state.pkl")
         camera_intr = CameraIntrinsics.load(camera_intr_filename)
         color = ColorImage.open(color_image_filename, frame=camera_intr.frame)
@@ -144,11 +149,15 @@ class RgbdImageState(object, *args):
         fully_observed = None
         if os.path.exists(state_filename):
             fully_observed = pkl.load(open(state_filename, "rb"))
+        if os.path.exists(tracepen_point_2d):
+            tracepen_point_2d = pkl.load(open(tracepen_point_2d, "rb"))
         return RgbdImageState(RgbdImage.from_color_and_depth(color, depth),
                               camera_intr,
                               segmask=segmask,
                               obj_segmask=obj_segmask,
-                              fully_observed=fully_observed)
+                              fully_observed=fully_observed,
+                              tracepen_point_2d=tracepen_point_2d)
+
 
 
 class GraspAction(object):
@@ -673,7 +682,7 @@ class RobustGraspingPolicy(GraspingPolicy):
         return GraspAction(grasp, q_value, state.rgbd_im.depth)
 
 
-class CrossEntropyRobustGraspingPolicy(GraspingPolicy, points_2d):
+class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
     """Optimizes a set of grasp candidates in image space using the
     cross entropy method.
 
@@ -1035,6 +1044,12 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy, points_2d):
             q_values = self._grasp_quality_fn(state,
                                               grasps,
                                               params=self._config)
+            
+            # Scale grasp quality by inverse distance
+            if state.tracepen_point_2d is not None:
+                # calculate distance from tracepen point to every grasp
+                q_values = scale_q_values_by_linear_distance(grasps, state.tracepen_point_2d, distance_threshold=30)
+            
             self._logger.info("Prediction took %.3f sec" %
                               (time() - predict_start))
 
@@ -1325,6 +1340,24 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy, points_2d):
         action = GraspAction(grasp, q_value, image)
         return action
 
+    def scale_q_values_by_linear_distance(grasps, tracepen_point_2d, distance_threshold=30):
+        '''
+        calculate distance from tracepen point to every grasp
+        tracepen_point_2d: array
+        distance_threshold in pixels TODO: change to cm
+        '''
+        euclidian_distance = np.zeros(len(grasps))
+        q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
+        for grasp_idx in range(len(grasps)):
+            distance_x = grasps[grasp_idx].center.x - tracepen_point_2d[0][0]
+            distance_y = grasps[grasp_idx].center.y - tracepen_point_2d[0][1]
+            euclidian_distance = math.sqrt(distance_x**2 + distance_y**2)
+            # linear penalty = 1 if distance = 0; < 1 if distance > 0
+            linear_distance_penalty = - euclidian_distance / distance_threshold + 1
+            q_values_scaled[grasp_idx] = q_values[grasp_idx] * linear_distance_penalty             
+            if q_values_scaled[grasp_idx] <= 0: 
+                q_values_scaled[grasp_idx] = 0
+        return q_values_scaled
 
 class QFunctionRobustGraspingPolicy(CrossEntropyRobustGraspingPolicy):
     """Optimizes a set of antipodal grasp candidates in image space using the
@@ -1519,7 +1552,7 @@ class EpsilonGreedyQFunctionRobustGraspingPolicy(QFunctionRobustGraspingPolicy
             vis.show()
 
         # Return action.
-        return GraspAction(grasp, q_value, image)
+        return (grasp, q_value, image)
 
 
 class CompositeGraspingPolicy(Policy):
