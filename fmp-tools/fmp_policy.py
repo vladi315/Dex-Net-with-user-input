@@ -209,11 +209,6 @@ if __name__ == "__main__":
                                     3]).astype(np.uint8),
                           frame=camera_intr.frame)
 
-    # Optionally read tracepen points and transform them to pixel coordinates
-    # TODO: rename to tracepen_folder
-    if pen_folder is not None: 
-        tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
-
     # Optionally read a segmask.
     segmask = None
     if segmask_filename is not None:
@@ -243,11 +238,27 @@ if __name__ == "__main__":
     # Create state.
     rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
     
-    if pen_folder is None:
-        state = RgbdImageState(rgbd_im, camera_intr, segmask) 
-    else:
+
+    # Optionally read tracepen points and transform them to pixel coordinates
+    # TODO: rename to tracepen_folder
+    if pen_folder is not None: 
+        tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+        
+        # Visualize projected tracepen points
+        vis.figure(size=(10, 10))
+        vis.imshow(rgbd_im.depth,
+                   vmin=policy_config["vis"]["vmin"],
+                   vmax=policy_config["vis"]["vmax"])
+        vis.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
+        vis.title("Projected tracepen points")
+        vis.show()
+
         # TODO: create new function RgbdImageTracepenState by inheriting from old
         state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
+
+    else:
+        state = RgbdImageState(rgbd_im, camera_intr, segmask) 
+
     
 
     # Set input sizes for fully-convolutional policy.
