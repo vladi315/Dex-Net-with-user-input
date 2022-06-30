@@ -6,6 +6,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from visualization import Visualizer2D as vis
 
 
 def projection(camera_pose, points_3d, camera_matrix, camera_height, camera_width):
@@ -43,7 +44,14 @@ def project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W):
     pen_files = sorted(glob.glob(os.path.join(pen_folder, "*")))
     pen_points = [np.loadtxt(f) for f in pen_files]
     tracepen_point_2d = projection(pose, pen_points, K, H, W)
+    print("tracepen points: ", tracepen_point_2d)
     return tracepen_point_2d
+
+def visualize_tracepen_projection_rgb(img_path, tracepen_point_2d):
+    img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+    plt.imshow(img)
+    plt.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
+    plt.show()
 
 if __name__ == '__main__':
     # Realsense 435i intrinsics
@@ -52,14 +60,10 @@ if __name__ == '__main__':
     H = 720
 
     img_path = "/home/vladislav/Downloads/housing_22_06/data/0000_image.png"
-    img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     pose_path = "/home/vladislav/Downloads/housing_22_06/data/0000_pose.txt"
     pen_folder = "/home/vladislav/Downloads/housing_22_06/points/data"
     tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W)
-    print("final points: ", tracepen_point_2d)
-    plt.imshow(img)
-    plt.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
-    plt.show()
+    visualize_tracepen_projection_rgb(img_path, tracepen_point_2d)
 
     # generate mask around tracepen points
     mask_radius = 0.03
