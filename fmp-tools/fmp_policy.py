@@ -227,6 +227,7 @@ if __name__ == "__main__":
         depth_images = []
         poses = []
         actions = []
+        states = []
         list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(depth_ims_dir, x)),
                             os.listdir(depth_ims_dir) ) )
         for file in list_of_files:
@@ -317,6 +318,7 @@ if __name__ == "__main__":
         policy_start = time.time()
         action = policy(state)
         actions.append(action)
+        states.append(state)
         logger.info("Planning took %.3f sec" % (time.time() - policy_start))
 
     if depth_ims_dir is not None:
@@ -328,6 +330,7 @@ if __name__ == "__main__":
                 best_q_value_idx = action_idx
         print("View point %s of %s yields highest grasp quality of %.3f" %(best_q_value_idx, len(actions)-1, actions[best_q_value_idx].q_value))
         action = actions[best_q_value_idx]
+        state = states[best_q_value_idx]
 
     # Vis final grasp.
     if camera_intr._frame == "realsense":
@@ -336,7 +339,7 @@ if __name__ == "__main__":
 
     if policy_config["vis"]["final_grasp"]:
         vis.figure(size=(10, 10))
-        vis.imshow(rgbd_im.depth,
+        vis.imshow(state.rgbd_im.depth,
                 vmin=policy_config["vis"]["vmin"],
                 vmax=policy_config["vis"]["vmax"])
         vis.grasp(action.grasp, scale=2.5, show_center=False, show_axis=True)
