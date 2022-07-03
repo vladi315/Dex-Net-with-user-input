@@ -61,11 +61,14 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="name of a trained model to run")
-    parser.add_argument(
-        "--depth_image",
-        type=str,
-        default=None,
-        help="path to a test depth image stored as a .npy file")
+    parser.add_argument("--depth_images_dir",
+                        type=str,
+                        default=None,
+                        help="path to a directory containing test depth images stored as .npy or .png files.")
+    parser.add_argument("--depth_image",
+                        type=str,
+                        default=None,
+                        help="path to a test depth image stored as a .npy or .png file")
     parser.add_argument("--segmask",
                         type=str,
                         default=None,
@@ -97,6 +100,7 @@ if __name__ == "__main__":
               " GQ-CNN policy"))
     args = parser.parse_args()
     model_name = args.model_name
+    depth_ims_dir = args.depth_images_dir
     depth_im_filename = args.depth_image
     segmask_filename = args.segmask
     camera_intr_filename = args.camera_intr
@@ -110,7 +114,7 @@ if __name__ == "__main__":
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
 
-    if depth_im_filename is None:
+    if depth_im_filename and depth_ims_dir is None:
         if fully_conv:
             depth_im_filename = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "..",
@@ -196,78 +200,6 @@ if __name__ == "__main__":
     # Setup sensor.
     camera_intr = CameraIntrinsics.load(camera_intr_filename)
 
-    # Read images.
-    # Transform raw realsense png depth to .npy format
-    if depth_im_filename.endswith(".png"):
-        depth_data = convert_png_to_npy(depth_im_filename)
-        depth_data = convert_depth_to_dexnet_format(depth_data)
-    else:
-        depth_data = np.load(depth_im_filename)
-
-    depth_im = DepthImage(depth_data, frame=camera_intr.frame)
-    color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
-                                    3]).astype(np.uint8),
-                          frame=camera_intr.frame)
-
-    # Optionally read a segmask.
-    segmask = None
-    if segmask_filename is not None:
-        segmask = BinaryImage.open(segmask_filename)
-    valid_px_mask = depth_im.invalid_pixel_mask().inverse()
-    if segmask is None:
-        segmask = valid_px_mask
-    else:
-        segmask = segmask.mask_binary(valid_px_mask)
-
-    # Inpaint.
-    depth_im = depth_im.inpaint(rescale_factor=inpaint_rescale_factor)
-
-    if "input_images" in policy_config["vis"] and policy_config["vis"][
-            "input_images"]:
-        vis.figure(size=(10, 10))
-        num_plot = 1
-        if segmask is not None:
-            num_plot = 2
-        vis.subplot(1, num_plot, 1)
-        vis.imshow(depth_im)
-        if segmask is not None:
-            vis.subplot(1, num_plot, 2)
-            vis.imshow(segmask)
-        vis.show()
-
-    # Create state.
-    rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
-    
-
-    # Optionally read tracepen points and transform them to pixel coordinates
-    # TODO: rename to tracepen_folder
-    if pen_folder is not None: 
-        tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
-        
-        # Visualize projected tracepen points
-        vis.figure(size=(10, 10))
-        vis.imshow(rgbd_im.depth,
-                   vmin=policy_config["vis"]["vmin"],
-                   vmax=policy_config["vis"]["vmax"])
-        vis.scatter(tracepen_point_2d[0,0], tracepen_point_2d[0,1], c="red")
-        vis.title("Projected tracepen points")
-        vis.show()
-
-        # TODO: create new function RgbdImageTracepenState by inheriting from old
-        state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
-
-    else:
-        state = RgbdImageState(rgbd_im, camera_intr, segmask) 
-
-    
-
-    # Set input sizes for fully-convolutional policy.
-    if fully_conv:
-        policy_config["metric"]["fully_conv_gqcnn_config"][
-            "im_height"] = depth_im.shape[0]
-        policy_config["metric"]["fully_conv_gqcnn_config"][
-            "im_width"] = depth_im.shape[1]
-
     # Init policy.
     if fully_conv:
         # TODO(vsatish): We should really be doing this in some factory policy.
@@ -290,10 +222,112 @@ if __name__ == "__main__":
         else:
             raise ValueError("Invalid policy type: {}".format(policy_type))
 
-    # Query policy.
-    policy_start = time.time()
-    action = policy(state)
-    logger.info("Planning took %.3f sec" % (time.time() - policy_start))
+    if depth_ims_dir is not None:
+        # get all filenames
+        depth_images = []
+        poses = []
+        actions = []
+        list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(depth_ims_dir, x)),
+                            os.listdir(depth_ims_dir) ) )
+        for file in list_of_files:
+            if file.endswith("depth_raw.png"):
+                depth_images.append(depth_ims_dir + file)
+            elif file.endswith("pose.txt"):
+                poses.append(depth_ims_dir + file)
+    else:
+        depth_images = [depth_im_filename]
+        poses = [pose_path]
+
+    for depth_im_idx in range(len(depth_images)):
+        # Read images.
+        # Transform raw realsense png depth to .npy format
+        if depth_images[depth_im_idx].endswith(".png"):
+            depth_data = convert_png_to_npy(depth_images[depth_im_idx])
+            depth_data = convert_depth_to_dexnet_format(depth_data)
+        else:
+            depth_data = np.load(depth_images[depth_im_idx])
+
+        depth_im = DepthImage(depth_data, frame=camera_intr.frame)
+        color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
+                                        3]).astype(np.uint8),
+                            frame=camera_intr.frame)
+
+        # Optionally read a segmask.
+        # TODO: automatically generate and load segmask for different views
+        segmask = None
+        if segmask_filename is not None:
+            segmask = BinaryImage.open(segmask_filename)
+        valid_px_mask = depth_im.invalid_pixel_mask().inverse()
+        if segmask is None:
+            segmask = valid_px_mask
+        else:
+            segmask = segmask.mask_binary(valid_px_mask)
+
+        # Inpaint.
+        depth_im = depth_im.inpaint(rescale_factor=inpaint_rescale_factor)
+
+        if "input_images" in policy_config["vis"] and policy_config["vis"][
+                "input_images"]:
+            vis.figure(size=(10, 10))
+            num_plot = 1
+            if segmask is not None:
+                num_plot = 2
+            vis.subplot(1, num_plot, 1)
+            vis.imshow(depth_im)
+            if segmask is not None:
+                vis.subplot(1, num_plot, 2)
+                vis.imshow(segmask)
+            vis.show()
+
+        # Create state.
+        rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
+        
+
+        # Optionally read tracepen points and transform them to pixel coordinates
+        # TODO: rename to tracepen_folder
+        if pen_folder is not None: 
+            tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+            
+            # Visualize projected tracepen points
+            if policy_config["vis"]["tracpen_projection"] == 1:
+                vis.figure(size=(10, 10))
+                vis.imshow(rgbd_im.depth,
+                        vmin=policy_config["vis"]["vmin"],
+                        vmax=policy_config["vis"]["vmax"])
+                vis.scatter(tracepen_point_2d[0,0], tracepen_point_2d[0,1], c="red")
+                vis.title("Projected tracepen points")
+                vis.show()
+
+            # TODO: create new function RgbdImageTracepenState by inheriting from old
+            state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
+
+        else:
+            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
+
+        
+
+        # Set input sizes for fully-convolutional policy.
+        if fully_conv:
+            policy_config["metric"]["fully_conv_gqcnn_config"][
+                "im_height"] = depth_im.shape[0]
+            policy_config["metric"]["fully_conv_gqcnn_config"][
+                "im_width"] = depth_im.shape[1]
+
+        # Query policy.
+        policy_start = time.time()
+        action = policy(state)
+        actions.append(action)
+        logger.info("Planning took %.3f sec" % (time.time() - policy_start))
+
+    if depth_ims_dir is not None:
+        # for multiple view points, select grasp with highest grasp quality 
+        max_q_value = 0
+        for action_idx, action in enumerate(actions):
+            if action.q_value > max_q_value: 
+                max_q_value = action.q_value
+                best_q_value_idx = action_idx
+        print("View point %s of %s yields highest grasp quality of %.3f" %(best_q_value_idx, len(actions)-1, actions[best_q_value_idx].q_value))
+        action = actions[best_q_value_idx]
 
     # Vis final grasp.
     if camera_intr._frame == "realsense":
@@ -303,10 +337,11 @@ if __name__ == "__main__":
     if policy_config["vis"]["final_grasp"]:
         vis.figure(size=(10, 10))
         vis.imshow(rgbd_im.depth,
-                   vmin=policy_config["vis"]["vmin"],
-                   vmax=policy_config["vis"]["vmax"])
+                vmin=policy_config["vis"]["vmin"],
+                vmax=policy_config["vis"]["vmax"])
         vis.grasp(action.grasp, scale=2.5, show_center=False, show_axis=True)
         vis.title("Planned grasp at depth {0:.3f}m with Q={1:.3f}".format(
             action.grasp.depth, action.q_value))
         vis.show()
-        test = 1
+            
+test = 1

@@ -15,6 +15,8 @@
         {
             "args": [
                 "GQCNN-2.0", // GQCNN-4.0-PJ GQCNN-4.0-SUCTION FC-GQCNN-4.0-PJ GQCNN-2.0 FC-GQCNN-4.0-PJ
+                "--depth_images_dir",
+                "/home/vladislav/Downloads/housing_22_06/data/",
                 "--depth_image",
                 // "/home/vladislav/Downloads/housing_depth_mm/0_depth_mm.png",
                 // "data/examples/single_object/primesense/depth_0.npy",
