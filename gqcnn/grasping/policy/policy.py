@@ -1048,7 +1048,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             # Scale grasp quality by inverse distance
             if state.tracepen_point_2d is not None:
                 # calculate distance from tracepen point to every grasp
-                distance_threshold = 30
+                distance_threshold = 150
                 q_values = self.scale_q_values_by_linear_distance(grasps, q_values, state.tracepen_point_2d, distance_threshold)
 
             self._logger.info("Prediction took %.3f sec" %

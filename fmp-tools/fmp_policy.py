@@ -249,7 +249,7 @@ if __name__ == "__main__":
         vis.imshow(rgbd_im.depth,
                    vmin=policy_config["vis"]["vmin"],
                    vmax=policy_config["vis"]["vmax"])
-        vis.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
+        vis.scatter(tracepen_point_2d[0,0], tracepen_point_2d[0,1], c="red")
         vis.title("Projected tracepen points")
         vis.show()
 
