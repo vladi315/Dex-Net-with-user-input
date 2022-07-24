@@ -27,6 +27,11 @@ def transform_camera_pose_nerf_to_dexnet(camera_pose_path):
     return 
 
 if __name__ == '__main__':
+    ''' 
+    This script converts saved camera poses from the NeRF to the Dex-Net format.
+    '''
+
+    
     camera_pose_path = '/home/vladislav/fmp_nerf/synthetic_data/testtransforms_.json'
     transform_matrix = transform_camera_pose_nerf_to_dexnet(camera_pose_path)
    
