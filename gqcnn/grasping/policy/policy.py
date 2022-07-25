@@ -1287,11 +1287,27 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
 
     def scale_q_values_by_linear_distance(self, grasps, q_values, tracepen_point_2d, distance_threshold=30):
-        '''
-        calculate distance from tracepen point to every grasp
-        tracepen_point_2d: array
-        distance_threshold in pixels TODO: change to cm
-        '''
+        """
+        Scale quality of grasps by linear distance from tracepen point 
+
+        The penalty function is f(distance) = - distance/distance_threshold + 1
+
+        Parameters
+        ----------
+        grasps: list
+        q_values: np array
+            The original grasp quality vector.
+        tracepen_point_2d : np array
+            Tracepen point.
+        distance_threshold : int
+            Distance in pixels at which the quality is scaled by 0.5.
+
+        Returns
+        -------
+        q_values_scaled: np array
+            The q_value vector scaled by the linear distance.
+        """
+
         euclidian_distance = np.zeros(len(grasps))
         q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
         for grasp_idx in range(len(grasps)):
@@ -1300,6 +1316,42 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             euclidian_distance = math.sqrt(distance_x**2 + distance_y**2)
             # linear penalty = 1 if distance = 0; < 1 if distance > 0
             linear_distance_penalty = - euclidian_distance / distance_threshold + 1
+            q_values_scaled[grasp_idx] = q_values[grasp_idx] * linear_distance_penalty             
+            if q_values_scaled[grasp_idx] <= 0: 
+                q_values_scaled[grasp_idx] = 0
+        return q_values_scaled
+
+
+    def scale_q_values_by_quadratic_distance(self, grasps, q_values, tracepen_point_2d, distance_threshold=30):
+        """
+        Scale quality of grasps by quadratic distance from tracepen point 
+
+        The penalty function is f(distance) = -0.5/(distance_threshold²) * distance² + 1
+
+        Parameters
+        ----------
+        grasps: list
+        q_values: np array
+            The original grasp quality vector.
+        tracepen_point_2d : np array
+            Tracepen point.
+        distance_threshold : int
+            Distance in pixels at which the quality is scaled by 0.5.
+
+        Returns
+        -------
+        q_values_scaled: np array
+            The q_value vector scaled by the linear distance.
+        """
+
+        euclidian_distance = np.zeros(len(grasps))
+        q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
+        for grasp_idx in range(len(grasps)):
+            distance_x = grasps[grasp_idx].center.x - tracepen_point_2d[0][0]
+            distance_y = grasps[grasp_idx].center.y - tracepen_point_2d[0][1]
+            euclidian_distance = math.sqrt(distance_x**2 + distance_y**2)
+            # linear penalty = 1 if distance = 0; < 1 if distance > 0
+            linear_distance_penalty = 1 - euclidian_distance / distance_threshold 
             q_values_scaled[grasp_idx] = q_values[grasp_idx] * linear_distance_penalty             
             if q_values_scaled[grasp_idx] <= 0: 
                 q_values_scaled[grasp_idx] = 0
