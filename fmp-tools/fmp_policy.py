@@ -48,7 +48,7 @@ from visualization import Visualizer2D as vis
 
 from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
-from fmp_tracepen_realsense_projection import project_tracepen_points_to_image
+from fmp_tracepen_camera_projection import project_tracepen_points_to_image
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
@@ -114,7 +114,7 @@ if __name__ == "__main__":
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
 
-    if depth_im_filename and depth_ims_dir is None:
+    if depth_im_filename is None and depth_ims_dir is None:
         if fully_conv:
             depth_im_filename = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "..",
@@ -123,10 +123,11 @@ if __name__ == "__main__":
             depth_im_filename = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "..",
                 "data/examples/single_object/primesense/depth_0.npy")
-    if fully_conv and segmask_filename is None:
-        segmask_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
-            "data/examples/clutter/primesense/segmask_0.png")
+    # TODO: delete
+    # if fully_conv and segmask_filename is None:
+    #     segmask_filename = os.path.join(
+    #         os.path.dirname(os.path.realpath(__file__)), "..",
+    #         "data/examples/clutter/primesense/segmask_0.png")
     if camera_intr_filename is None:
         camera_intr_filename = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..",
@@ -255,9 +256,10 @@ if __name__ == "__main__":
 
         # Optionally read a segmask.
         # TODO: automatically generate and load segmask for different views
-        segmask = None
         if segmask_filename is not None:
             segmask = BinaryImage.open(segmask_filename)
+        else:
+            segmask = None
         valid_px_mask = depth_im.invalid_pixel_mask().inverse()
         if segmask is None:
             segmask = valid_px_mask
@@ -333,7 +335,7 @@ if __name__ == "__main__":
         state = states[best_q_value_idx]
 
     # Vis final grasp.
-    if camera_intr._frame == "realsense":
+    if camera_intr._frame == "basler":
         policy_config["vis"]["vmin"] = 0.6
         policy_config["vis"]["vmax"] = 0.8
 

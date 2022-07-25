@@ -20,6 +20,7 @@ def convert_png_to_npy(png_path):
     # np.asarray() class is used to convert
     # PIL images into NumPy arrays
     npy_array = np.asarray(image)
+    npy_array = np.float32(npy_array)
     
     # <class 'numpy.ndarray'>
     # print(type(npy_array))
@@ -43,7 +44,7 @@ def convert_depth_to_dexnet_format(npy_array):
     #TODO: RENAME TO "DEPTH"
     npy_array = np.float32(npy_array)
     npy_array = np.expand_dims(npy_array, axis=2) 
-    npy_array = npy_array/1000 
+    npy_array = npy_array /1000 
 
     # camera_intr_filename = "data/calib/realsense/realsense.intr"
     # camera_intr = CameraIntrinsics.load(camera_intr_filename)
