@@ -20,10 +20,12 @@ def save_points(points, point_dir):
 def transform_camera_pose_nerf_to_dexnet(camera_pose_path):
     with open(camera_pose_path, 'r') as f:
         data = json.load(f)
-    for pose in data:
+    for pose_idx, pose in enumerate(data):
         transform_matrix = pose['transform_matrix']
         transform_matrix = np.array([transform_matrix[0], transform_matrix[1], transform_matrix[2], transform_matrix[3]])
         # TODO: add saving to dexnet format
+        new_file_name = camera_pose_path.strip(".json") + str(pose_idx) + ".txt"
+        np.savetxt(new_file_name, transform_matrix)
     return 
 
 if __name__ == '__main__':
@@ -31,7 +33,7 @@ if __name__ == '__main__':
     This script converts saved camera poses from the NeRF to the Dex-Net format.
     '''
 
-    
+
     camera_pose_path = '/home/vladislav/fmp_nerf/synthetic_data/testtransforms_.json'
     transform_matrix = transform_camera_pose_nerf_to_dexnet(camera_pose_path)
    
