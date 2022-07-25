@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+from cv2 import transform
 
 
 def sample_points(point_number = 10):
@@ -17,26 +18,30 @@ def save_points(points, point_dir):
 		np.savetxt(point_path , point)
 	return 
 
-def transform_camera_pose_nerf_to_dexnet(camera_pose_path):
+def transform_camera_poses_nerf_to_dexnet(camera_pose_path):
     with open(camera_pose_path, 'r') as f:
         data = json.load(f)
+    transform_matrices = []
     for pose_idx, pose in enumerate(data):
         transform_matrix = pose['transform_matrix']
-        transform_matrix = np.array([transform_matrix[0], transform_matrix[1], transform_matrix[2], transform_matrix[3]])
-        # TODO: add saving to dexnet format
-        new_file_name = camera_pose_path.strip(".json") + str(pose_idx) + ".txt"
+        transform_matrices.append(np.array([transform_matrix[0], transform_matrix[1], transform_matrix[2], transform_matrix[3]]))
+    return transform_matrices
+
+def save_camera_poses(transform_matrices, camera_pose_path):
+    # TODO: add saving to dexnet format
+    for matrix_idx, transform_matrix in enumerate(transform_matrices):
+        new_file_name = camera_pose_path.strip(".json") + str(matrix_idx) + ".txt"
         np.savetxt(new_file_name, transform_matrix)
-    return 
 
 if __name__ == '__main__':
     ''' 
     This script converts saved camera poses from the NeRF to the Dex-Net format.
     '''
 
-
-    camera_pose_path = '/home/vladislav/fmp_nerf/synthetic_data/testtransforms_.json'
-    transform_matrix = transform_camera_pose_nerf_to_dexnet(camera_pose_path)
+    NeRF_camera_pose_path = '/home/vladislav/fmp_nerf/synthetic_data/testtransforms_.json'
    
+    transform_matrices = transform_camera_poses_nerf_to_dexnet(NeRF_camera_pose_path)
+    save_camera_poses(transform_matrices, NeRF_camera_pose_path)
     
     # fake and save a tracepen point 
     point_number = 10
