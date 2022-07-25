@@ -14,7 +14,7 @@ def sample_points(point_number = 10):
 
 def save_points(points, point_dir):
 	for point_idx, point in enumerate(points):
-		point_path = point_dir + "/" + str(point_idx) + "_point.txt"
+		point_path = point_dir + str(point_idx) + "_point.txt"
 		np.savetxt(point_path , point)
 	return 
 
@@ -28,9 +28,8 @@ def transform_camera_poses_nerf_to_dexnet(camera_pose_path):
     return transform_matrices
 
 def save_camera_poses(transform_matrices, camera_pose_path):
-    # TODO: add saving to dexnet format
     for matrix_idx, transform_matrix in enumerate(transform_matrices):
-        new_file_name = camera_pose_path.strip(".json") + str(matrix_idx) + ".txt"
+        new_file_name = camera_pose_path.strip(".json") + str(matrix_idx) + "_pose" + ".txt"
         np.savetxt(new_file_name, transform_matrix)
 
 if __name__ == '__main__':
@@ -38,14 +37,14 @@ if __name__ == '__main__':
     This script converts saved camera poses from the NeRF to the Dex-Net format.
     '''
 
-    NeRF_camera_pose_path = '/home/vladislav/fmp_nerf/synthetic_data/testtransforms_.json'
+    NeRF_camera_pose_path = '/home/vladislav/gqcnn/fmp-tools/test-25-07/testtransforms_.json'
    
     transform_matrices = transform_camera_poses_nerf_to_dexnet(NeRF_camera_pose_path)
     save_camera_poses(transform_matrices, NeRF_camera_pose_path)
     
-    # fake and save a tracepen point 
-    point_number = 10
-    points = sample_points(point_number)
-    point_path = "./fmp-tools/points/"
-    save_points(points, point_path)
+    # fake and save tracepen points
+    # point_number = 10
+    # points = sample_points(point_number)
+    # point_path = "./fmp-tools/test-25-07/points/"
+    # save_points(points, point_path)
 

@@ -54,14 +54,14 @@ def visualize_tracepen_projection_rgb(img_path, tracepen_point_2d):
     plt.show()
 
 if __name__ == '__main__':
-    # Realsense 435i intrinsics
-    K = np.array([907.103516, 0.0,  649.697702, 0.0, 907.77832, 383.828184, 0.0, 0.0, 1.0]).reshape(3,3)
+    # Basler
+    K = np.array([856.657396, 0.0,  611.745622, 0.0, 858.802578, 514.072871, 0.0, 0.0, 1.0]).reshape(3,3)
     W = 1280
-    H = 720
+    H = 1024
 
-    img_path = "/home/vladislav/Downloads/housing_22_06/data/0000_image.png"
-    pose_path = "/home/vladislav/Downloads/housing_22_06/data/0000_pose.txt"
-    pen_folder = "/home/vladislav/Downloads/housing_22_06/points/data"
+    img_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/0_depth.png"
+    pose_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/testtransforms_0.txt"
+    pen_folder = "/home/vladislav/gqcnn/fmp-tools/test-25-07/points"
     tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W)
     visualize_tracepen_projection_rgb(img_path, tracepen_point_2d)
 
