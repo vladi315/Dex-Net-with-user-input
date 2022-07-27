@@ -256,10 +256,9 @@ if __name__ == "__main__":
 
         # Optionally read a segmask.
         # TODO: automatically generate and load segmask for different views
+        segmask = None
         if segmask_filename is not None:
             segmask = BinaryImage.open(segmask_filename)
-        else:
-            segmask = None
         valid_px_mask = depth_im.invalid_pixel_mask().inverse()
         if segmask is None:
             segmask = valid_px_mask
