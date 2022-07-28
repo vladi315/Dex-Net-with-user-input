@@ -104,7 +104,6 @@ class RgbdImageState(object):
         segmask_filename = os.path.join(save_dir, "segmask.npy")
         obj_segmask_filename = os.path.join(save_dir, "obj_segmask.npy")
         state_filename = os.path.join(save_dir, "state.pkl")
-        tracepen_point_2d_filename = os.path.join(save_dir, "tracepen_point_2d.pkl")
         self.rgbd_im.color.save(color_image_filename)
         self.rgbd_im.depth.save(depth_image_filename)
         self.camera_intr.save(camera_intr_filename)
@@ -114,8 +113,7 @@ class RgbdImageState(object):
             self.obj_segmask.save(obj_segmask_filename)
         if self.fully_observed is not None:
             pkl.dump(self.fully_observed, open(state_filename, "wb"))
-        if self.tracepen_point_2d is not None:
-            pkl.dump(self.tracepen_point_2d, open(tracepen_point_2d_filename, "wb"))
+
 
     @staticmethod
     def load(save_dir):
@@ -133,7 +131,6 @@ class RgbdImageState(object):
         camera_intr_filename = os.path.join(save_dir, "camera.intr")
         segmask_filename = os.path.join(save_dir, "segmask.npy")
         obj_segmask_filename = os.path.join(save_dir, "obj_segmask.npy")
-        tracepen_point_2d = os.path.join(save_dir, "tracepen_point_2d.npy")
         state_filename = os.path.join(save_dir, "state.pkl")
         camera_intr = CameraIntrinsics.load(camera_intr_filename)
         color = ColorImage.open(color_image_filename, frame=camera_intr.frame)
@@ -1083,11 +1080,11 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
                                               grasps,
                                               params=self._config)
             
-            # Scale grasp quality by inverse distance
             if state.tracepen_point_2d is not None:
-                # calculate distance from tracepen point to every grasp
-                distance_threshold = 150
-                q_values = self.scale_q_values_by_linear_distance(grasps, q_values, state.tracepen_point_2d, distance_threshold)
+                if state.user_input_fusion_method == "linear_distance_scaling" or "quadratic_distance_scaling":
+                    # Scale grasp quality by inverse distance
+                    q_values = self.scale_q_values_by_distance_penalty(self, grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
+                  
 
             self._logger.info("Prediction took %.3f sec" %
                               (time() - predict_start))
@@ -1323,7 +1320,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
         return grasps, q_values
 
-    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, distance_threshold=30):
+    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, user_input_fusion_method = "linear_distance_scaling", user_input_weight = "medium"):
         """
         Reduce quality of grasps by distance from tracepen point 
         
@@ -1338,14 +1335,29 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             The original grasp quality vector.
         tracepen_point_2d : np array
             Tracepen point.
+        user_input_fusion_method:
         distance_threshold : int
             Distance in pixels at which the quality is scaled by 0.5.
+        user_input_fusion_method: str
+
+        user_input_weight: str
 
         Returns
         -------
         q_values_scaled: np array
             The q_value vector scaled by the linear distance.
         """
+
+        # transform between thresholds in camera coordinates [mm] to thresholds in pixel coordinates
+        # for 
+        if user_input_weight == "low":
+            distance_threshold = 150 # pixels
+        if user_input_weight == "medium":
+            distance_threshold = 50 # pixels
+        if user_input_weight == "high":
+            distance_threshold = 15 # pixels
+        else: 
+            raise ValueError('Invalid parameter setting. Choose between "low" "medium" and "high" as user_input_weight.')
 
         euclidian_distance = np.zeros(len(grasps))
         q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
@@ -1417,7 +1429,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
         # Return action.
         action = GraspAction(grasp, q_value, image)
-        return action
+        return action    
 
 class QFunctionRobustGraspingPolicy(CrossEntropyRobustGraspingPolicy):
     """Optimizes a set of antipodal grasp candidates in image space using the
