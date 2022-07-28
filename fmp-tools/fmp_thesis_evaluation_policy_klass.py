@@ -225,12 +225,13 @@ if __name__ == "__main__":
         else:
             raise ValueError("Invalid policy type: {}".format(policy_type))
 
+    depth_images = []
+    poses = []
+    actions = []
+    states = []
+
     if depth_ims_dir is not None:
         # get all filenames
-        depth_images = []
-        poses = []
-        actions = []
-        states = []
         list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(depth_ims_dir, x)),
                             os.listdir(depth_ims_dir) ) )
         for file in list_of_files:
@@ -238,6 +239,10 @@ if __name__ == "__main__":
                 depth_images.append(depth_ims_dir + file)
             elif file.endswith("pose.txt"):
                 poses.append(depth_ims_dir + file)
+        if len(poses) == 0:
+            print("No camera poses found. Please check that they match the required naming format.")
+        if len(depth_images) == 0:
+            print("No depth images found. Please check that they match the required naming format.")
     else:
         depth_images = [depth_im_filename]
         poses = [pose_path]
@@ -293,7 +298,7 @@ if __name__ == "__main__":
             tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             
             # Visualize projected tracepen points
-            if policy_config["vis"]["tracpen_projection"] == 1:
+            if policy_config["vis"]["tracepen_projection"] == 1:
                 vis.figure(size=(10, 10))
                 vis.imshow(rgbd_im.depth,
                         vmin=policy_config["vis"]["vmin"],
@@ -351,3 +356,4 @@ if __name__ == "__main__":
         vis.show()
             
 test = 1
+
