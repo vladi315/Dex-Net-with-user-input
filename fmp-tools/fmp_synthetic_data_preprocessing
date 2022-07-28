@@ -68,6 +68,6 @@ if __name__ == '__main__':
         # fake and save tracepen points
         point_number = 10
         points = sample_points(point_number)
-        points_dir = parent_dir + "points/"
+        points_dir = parent_dir + "tracepen_points/"
         save_points(points, points_dir)
 

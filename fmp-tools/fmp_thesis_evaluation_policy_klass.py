@@ -45,12 +45,15 @@ from gqcnn.grasping import (CrossEntropyRobustGraspingPolicy,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction,
                             RgbdImageState, RobustGraspingPolicy)
+from gqcnn.grasping.policy.policy import (RgbdImageState,
+                                          RgbdImageStateWithUserInput)
 from gqcnn.utils import GripperMode
 from visualization import Visualizer2D as vis
 
 from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
-from fmp_tracepen_camera_projection import project_tracepen_points_to_image
+from fmp_tracepen_camera_projection import (
+    generate_mask_from_3d_user_input_pos, project_tracepen_points_to_image)
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
@@ -91,10 +94,18 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to camera pose file to use")
-    parser.add_argument("--pen_folder",
+    parser.add_argument("--user_input_3d_folder",
                         type=str,
                         default=None,
                         help="path to folder containing tracepen points to use")
+    parser.add_argument("--user_input_fusion_method",
+                    type=str,
+                    default=None,
+                    help="method how to fuse tracepen user input position with grasp pose predictions. Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
+    parser.add_argument("--user_input_weight",
+                    type=str,
+                    default=None,
+                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between low medium and high.")
     parser.add_argument(
         "--fully_conv",
         action="store_true",
@@ -110,11 +121,19 @@ if __name__ == "__main__":
     config_filename = args.config_filename
     fully_conv = args.fully_conv
     pose_path = args.pose_path
-    pen_folder = args.pen_folder
+    user_input_3d_folder = args.user_input_3d_folder
+    user_input_fusion_method = args.user_input_fusion_method
+    user_input_weight = args.user_input_weight
 
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
+    assert not (user_input_3d_folder is None and (depth_im_filename is not None or user_input_weight is not None)
+                # TODO: remove one parameter and detect whether a filename or directory is provided
+                ), "Provide either a depth-ims_dir or a depth im_filename, but not both."
+    assert not (depth_ims_dir and depth_im_filename
+            # TODO: remove one parameter and detect whether a filename or directory is provided
+                ), "Provide either a depth-ims_dir or a depth im_filename, but not both."
 
     if depth_im_filename is None and depth_ims_dir is None:
         if fully_conv:
@@ -261,17 +280,6 @@ if __name__ == "__main__":
                                         3]).astype(np.uint8),
                             frame=camera_intr.frame)
 
-        # Optionally read a segmask.
-        # TODO: automatically generate and load segmask for different views
-        segmask = None
-        if segmask_filename is not None:
-            segmask = BinaryImage.open(segmask_filename)
-        valid_px_mask = depth_im.invalid_pixel_mask().inverse()
-        if segmask is None:
-            segmask = valid_px_mask
-        else:
-            segmask = segmask.mask_binary(valid_px_mask)
-
         # Inpaint.
         depth_im = depth_im.inpaint(rescale_factor=inpaint_rescale_factor)
 
@@ -293,9 +301,11 @@ if __name__ == "__main__":
         
 
         # Optionally read tracepen points and transform them to pixel coordinates
-        # TODO: rename to tracepen_folder
-        if pen_folder is not None: 
-            tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+        # TODO: rename to traceuser_input_3d_folder
+        if user_input_3d_folder is None: 
+            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
+        else:
+            tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             
             # Visualize projected tracepen points
             if policy_config["vis"]["tracepen_projection"] == 1:
@@ -307,13 +317,19 @@ if __name__ == "__main__":
                 vis.title("Projected tracepen points")
                 vis.show()
 
-            # TODO: create new function RgbdImageTracepenState by inheriting from old
-            state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
 
-        else:
-            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
-
+        # Optionally read a segmask.
+        segmask = None
+        if user_input_fusion_method == "masking":
+            segmask_filename = generate_mask_from_3d_user_input_pos(camera_intr, tracepen_point_2d, depth_im_filename, user_input_weight)
+        if segmask_filename is not None:
+            segmask = BinaryImage.open(segmask_filename)
+        valid_px_mask = depth_im.invalid_pixel_mask().inverse()
         
+        if segmask is None:
+            segmask = valid_px_mask
+        else:
+            segmask = segmask.mask_binary(valid_px_mask)
 
         # Set input sizes for fully-convolutional policy.
         if fully_conv:
@@ -323,6 +339,7 @@ if __name__ == "__main__":
                 "im_width"] = depth_im.shape[1]
 
         # Query policy.
+        state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, tracepen_point_2d, user_input_fusion_method)
         policy_start = time.time()
         action = policy(state)
         actions.append(action)

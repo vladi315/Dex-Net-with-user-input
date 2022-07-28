@@ -23,23 +23,39 @@ def projection(camera_pose, points_3d, camera_matrix, camera_height, camera_widt
     
     return np.array(points_ref)
 
-def generate_mask_from_tracepen_pos(H, W, points_2d, img_path, mask_radius, depth):
+def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_input, img_path, user_input_weight = "medium", depth = 0.7):
     '''
-    mask radius: radius around tp position that will be masked [m]
-    depth: depth of tracepen point in [m] 
+    projected_2d_user_input: user input points projected from world to image coordinates
+    img_path: path of the image to be masked
+    user_input_weight: Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between 'low', 'medium' and 'high'.")
+    depth: depth of user input in camera coordinate system [m] TODO: read value from tracepen
     '''
-    mask_radius_in_image_plane = int(mask_radius * K[1,1] / depth)
-    mask_image = np.zeros((H,W,3), np.uint8)
-    for i in range(len(points_2d)):
-        cv2.circle(mask_image, points_2d[i], mask_radius_in_image_plane, (255, 255, 255), -1)
+    image_width = camera_intrinsics.width
+    image_height = camera_intrinsics.height
+    camera_intrinsics_matrix = camera_intrinsics.K
+
+    # calculate radius around user input position that will be masked [m]
+    if user_input_weight == "low":
+        mask_radius_in_m = 0.005
+    elif user_input_weight == "medium":
+        mask_radius_in_m = 0.015
+    elif user_input_weight == "high":
+        mask_radius_in_m = 0.03
+        
+    # transform from meters to pixels
+    mask_radius_in_pixels = int(mask_radius_in_m * camera_intrinsics_matrix[1,1] / depth)
+    mask_image = np.zeros((image_height, image_width, 3), np.uint8)
+    for i in range(len(projected_2d_user_input)):
+        cv2.circle(mask_image, projected_2d_user_input[i], mask_radius_in_pixels, (255, 255, 255), -1)
     plt.imshow(mask_image)
     plt.show()
 
     # save mask
-    file_name = img_path.strip('.png') + '_tracepen_mask.png'
+    file_name = img_path.strip('.png') + '_user_input_mask.png'
     cv2.imwrite(file_name, mask_image)
+    return file_name
 
-def project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W):
+def project_user_input_to_image(pose_path, pen_folder,  K, H, W):
     pose = np.loadtxt(pose_path)
     pen_files = sorted(glob.glob(os.path.join(pen_folder, "*")))
     pen_points = [np.loadtxt(f) for f in pen_files]
@@ -55,17 +71,17 @@ def visualize_tracepen_projection_rgb(img_path, tracepen_point_2d):
 
 if __name__ == '__main__':
     # Basler
-    K = np.array([856.657396, 0.0,  611.745622, 0.0, 858.802578, 514.072871, 0.0, 0.0, 1.0]).reshape(3,3)
-    W = 1280
-    H = 1024
+    camera_intrinsics = dict()
+    camera_intrinsics.K = np.array([856.657396, 0.0,  611.745622, 0.0, 858.802578, 514.072871, 0.0, 0.0, 1.0]).reshape(3,3)
+    camera_intrinsics.width = 1280
+    camera_intrinsics.heigth = 1024
 
     img_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/0_depth.png"
     pose_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/testtransforms_0.txt"
     pen_folder = "/home/vladislav/gqcnn/fmp-tools/test-25-07/points"
-    tracepen_point_2d = project_tracepen_points_to_image(pose_path, pen_folder,  K, H, W)
-    visualize_tracepen_projection_rgb(img_path, tracepen_point_2d)
+    projected_2d_user_input = project_user_input_to_image(pose_path, pen_folder,  K, H, W)
+    visualize_tracepen_projection_rgb(img_path, project_user_input_to_image)
 
     # generate mask around tracepen points
     mask_radius = 0.03
-    depth = 0.7 # TODO: refine this by calculated relative distance camera to tracepen point
-    generate_mask_from_tracepen_pos(H, W, tracepen_point_2d, img_path, mask_radius, depth)
+    masked_image = generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_input, img_path)
