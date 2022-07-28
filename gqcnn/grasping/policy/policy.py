@@ -149,14 +149,52 @@ class RgbdImageState(object):
         fully_observed = None
         if os.path.exists(state_filename):
             fully_observed = pkl.load(open(state_filename, "rb"))
-        if os.path.exists(tracepen_point_2d):
-            tracepen_point_2d = pkl.load(open(tracepen_point_2d, "rb"))
         return RgbdImageState(RgbdImage.from_color_and_depth(color, depth),
                               camera_intr,
                               segmask=segmask,
                               obj_segmask=obj_segmask,
-                              fully_observed=fully_observed,
-                              tracepen_point_2d=tracepen_point_2d)
+                              fully_observed=fully_observed)
+
+
+class RgbdImageStateWithUserInput(RgbdImageState):
+    def __init__(self,
+                 rgbd_im,
+                 camera_intr,
+                 segmask=None,
+                 obj_segmask=None,
+                 fully_observed=None,
+                 tracepen_point_2d = None,
+                 user_input_fusion_method = "linear_distance_scaling",
+                 user_input_weight = "medium"):
+        """
+        Parameters
+        ----------
+        rgbd_im : :obj:`autolab_core.RgbdImage`
+            An RGB-D image to plan grasps on.
+        camera_intr : :obj:`autolab_core.CameraIntrinsics`
+            Intrinsics of the RGB-D camera.
+        segmask : :obj:`autolab_core.BinaryImage`
+            Segmentation mask for the image.
+        obj_segmask : :obj:`autolab_core.SegmentationImage`
+            Segmentation mask for the different objects in the image.
+        full_observed : :obj:`object`
+            Representation of the fully observed state.
+        tracepen_points_2d : :arr:`np.array` # TODO: check if datatype is right
+            tracepen points projected to pixel coordinates.
+        user_input_fusion_method : str
+            Method how to fuse tracepen user input position with grasp pose predictions. 
+            Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".
+        user_input_weight: str
+            Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between low medium and high.
+        """
+        self.rgbd_im = rgbd_im
+        self.camera_intr = camera_intr
+        self.segmask = segmask
+        self.obj_segmask = obj_segmask
+        self.fully_observed = fully_observed
+        self.tracepen_point_2d = tracepen_point_2d
+        self.user_input_weight = user_input_weight
+
 
 
 
