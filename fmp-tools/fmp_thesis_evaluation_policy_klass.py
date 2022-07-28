@@ -53,7 +53,7 @@ from visualization import Visualizer2D as vis
 from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
 from fmp_tracepen_camera_projection import (
-    generate_mask_from_3d_user_input_pos, project_tracepen_points_to_image)
+    generate_mask_from_3d_user_input_pos, project_user_input_to_image)
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
@@ -305,7 +305,7 @@ if __name__ == "__main__":
         if user_input_3d_folder is None: 
             state = RgbdImageState(rgbd_im, camera_intr, segmask) 
         else:
-            tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+            tracepen_point_2d = project_user_input_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             
             # Visualize projected tracepen points
             if policy_config["vis"]["tracepen_projection"] == 1:
@@ -342,6 +342,10 @@ if __name__ == "__main__":
         state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, tracepen_point_2d, user_input_fusion_method)
         policy_start = time.time()
         action = policy(state)
+
+        grasp_quality = action.q_value
+        distance_grasp_to_user_input = action.calc_distance_grasp_to_user_input(action.grasp, tracepen_point_2d)
+
         actions.append(action)
         states.append(state)
         logger.info("Planning took %.3f sec" % (time.time() - policy_start))
