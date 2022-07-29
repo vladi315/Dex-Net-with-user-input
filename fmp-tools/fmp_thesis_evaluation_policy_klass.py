@@ -44,7 +44,7 @@ from autolab_core import (BinaryImage, CameraIntrinsics, ColorImage,
 from gqcnn.grasping import (CrossEntropyRobustGraspingPolicy,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction,
-                            RgbdImageState, RobustGraspingPolicy)
+                            RgbdImageState, RobustGraspingPolicy, grasp)
 from gqcnn.grasping.policy.policy import (RgbdImageState,
                                           RgbdImageStateWithUserInput)
 from gqcnn.utils import GripperMode
@@ -58,79 +58,25 @@ from fmp_user_input_camera_projection import (
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
 
-if __name__ == "__main__":
-    # Parse args.
-    parser = argparse.ArgumentParser(
-        description="Run a grasping policy on an example image")
-    parser.add_argument("model_name",
-                        type=str,
-                        default=None,
-                        help="name of a trained model to run")
-    parser.add_argument("--depth_images_dir",
-                        type=str,
-                        default=None,
-                        help="path to a directory containing test depth images stored as .npy or .png files.")
-    parser.add_argument("--depth_image",
-                        type=str,
-                        default=None,
-                        help="path to a test depth image stored as a .npy or .png file")
-    parser.add_argument("--segmask",
-                        type=str,
-                        default=None,
-                        help="path to an optional segmask to use")
-    parser.add_argument("--camera_intr",
-                        type=str,
-                        default=None,
-                        help="path to the camera intrinsics")
-    parser.add_argument("--model_dir",
-                        type=str,
-                        default=None,
-                        help="path to the folder in which the model is stored")
-    parser.add_argument("--config_filename",
-                        type=str,
-                        default=None,
-                        help="path to configuration file to use")
-    parser.add_argument("--camera_pose_path",
-                        type=str,
-                        default=None,
-                        help="path to camera pose file to use")
-    parser.add_argument("--user_input_3d_folder",
-                        type=str,
-                        default=None,
-                        help="path to folder containing user_input points to use")
-    parser.add_argument("--user_input_fusion_method",
-                    type=str,
-                    default=None,
-                    help="method how to fuse user_input user input position with grasp pose predictions. Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
-    parser.add_argument("--user_input_weight",
-                    type=str,
-                    default=None,
-                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between very low, low, medium, high and very high.")
-    parser.add_argument(
-        "--fully_conv",
-        action="store_true",
-        help=("run Fully-Convolutional GQ-CNN policy instead of standard"
-              " GQ-CNN policy"))
-    args = parser.parse_args()
-    model_name = args.model_name
-    depth_ims_dir = args.depth_images_dir
-    depth_im_filename = args.depth_image
-    segmask_filename = args.segmask
-    camera_intr_filename = args.camera_intr
-    model_dir = args.model_dir
-    config_filename = args.config_filename
-    fully_conv = args.fully_conv
-    camera_pose_path = args.camera_pose_path
-    user_input_3d_folder = args.user_input_3d_folder
-    user_input_fusion_method = args.user_input_fusion_method
-    user_input_weight = args.user_input_weight
-
+def main(model_name,
+        depth_ims_dir  = None,
+        depth_im_filename = None, 
+        segmask_filename = None, 
+        camera_intr_filename = None, 
+        model_dir = None, 
+        config_filename = None, 
+        fully_conv = None, 
+        camera_pose_path = None, 
+        user_input_3d_folder = None, 
+        user_input_fusion_method = None, 
+        user_input_weight = None
+        ):
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
     assert not (user_input_3d_folder is None and (user_input_fusion_method is not None or user_input_weight is not None)
                 ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
-    assert (user_input_weight == "very low" or user_input_weight == "low" or user_input_weight == "medium" or user_input_weight == "high" or user_input_weight == "very high" or 
+    assert (user_input_weight == "very low" or user_input_weight == "low" or user_input_weight == "medium" or user_input_weight == "high" or user_input_weight == "very high" 
                 ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
     assert not (depth_ims_dir and depth_im_filename
             # TODO: remove one parameter and detect whether a filename or directory is provided
@@ -221,7 +167,7 @@ if __name__ == "__main__":
                 policy_config["metric"]["gqcnn_model"])
 
     # Setup sensor.
-    camera_intr = CameraIntrinsics.load(camera_intr_filename)
+        camera_intr = CameraIntrinsics.load(camera_intr_filename)
 
     # Init policy.
     if fully_conv:
@@ -345,10 +291,15 @@ if __name__ == "__main__":
         policy_start = time.time()
         action = policy(state)
 
-        if user_input_3d_folder is not None:
-            grasp_quality = action.q_value
-            distance_grasp_to_user_input = policy.calc_distance_grasp_to_user_input(action.grasp, user_input_point_2d)
 
+        if user_input_3d_folder is not None:            
+            mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = calc_evaluation_metrics(
+                action, policy, user_input_point_2d, state.camera_intr)
+        else:
+            mean_evaluation_metric = None
+            grasp_quality = None
+            distance_grasp_to_user_input_norm = None
+            
         actions.append(action)
         states.append(state)
         logger.info("Planning took %.3f sec" % (time.time() - policy_start))
@@ -378,7 +329,100 @@ if __name__ == "__main__":
         vis.title("Planned grasp at depth {0:.3f}m with Q={1:.3f}".format(
             action.grasp.depth, action.q_value))
         vis.show()
-        test = 1
-            
-test = 1   
+    return mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm
 
+
+def calc_evaluation_metrics(action, policy, user_input_point_2d, camera_intr):
+    grasp_quality = action.q_value
+    distance_grasp_to_user_input_in_pixels = policy.calc_distance_grasp_to_user_input(action.grasp, user_input_point_2d)
+    # transform from pixels to meters
+    depth = 0.7 # [m]; Dex-Net is trained on objects that are 0.65-0.75m away
+    # transform from pixel coordinates to camera coordinates [m]
+    distance_grasp_to_user_input_in_meters = distance_grasp_to_user_input_in_pixels * depth / camera_intr.K[1,1] 
+    distance_threshold = 0.05 # [m] at which the normalized distance score is 0
+    distance_grasp_to_user_input_norm = 1 - distance_grasp_to_user_input_in_meters / distance_threshold 
+    if distance_grasp_to_user_input_norm < 0: 
+        distance_grasp_to_user_input_norm = 0
+    # calculate geometric mean as evaluation metric
+    mean_evaluation_metric = np.sqrt(distance_grasp_to_user_input_norm * grasp_quality)
+    return mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm 
+
+if __name__ == "__main__":
+    # Parse args.
+    parser = argparse.ArgumentParser(
+        description="Run a grasping policy on an example image")
+    parser.add_argument("model_name",
+                        type=str,
+                        default=None,
+                        help="name of a trained model to run")
+    parser.add_argument("--depth_images_dir",
+                        type=str,
+                        default=None,
+                        help="path to a directory containing test depth images stored as .npy or .png files.")
+    parser.add_argument("--depth_image",
+                        type=str,
+                        default=None,
+                        help="path to a test depth image stored as a .npy or .png file")
+    parser.add_argument("--segmask",
+                        type=str,
+                        default=None,
+                        help="path to an optional segmask to use")
+    parser.add_argument("--camera_intr",
+                        type=str,
+                        default=None,
+                        help="path to the camera intrinsics")
+    parser.add_argument("--model_dir",
+                        type=str,
+                        default=None,
+                        help="path to the folder in which the model is stored")
+    parser.add_argument("--config_filename",
+                        type=str,
+                        default=None,
+                        help="path to configuration file to use")
+    parser.add_argument("--camera_pose_path",
+                        type=str,
+                        default=None,
+                        help="path to camera pose file to use")
+    parser.add_argument("--user_input_3d_folder",
+                        type=str,
+                        default=None,
+                        help="path to folder containing user_input points to use")
+    parser.add_argument("--user_input_fusion_method",
+                    type=str,
+                    default=None,
+                    help="method how to fuse user_input user input position with grasp pose predictions. Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
+    parser.add_argument("--user_input_weight",
+                    type=str,
+                    default=None,
+                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between very low, low, medium, high and very high.")
+    parser.add_argument(
+        "--fully_conv",
+        action="store_true",
+        help=("run Fully-Convolutional GQ-CNN policy instead of standard"
+              " GQ-CNN policy"))
+    args = parser.parse_args()
+    model_name = args.model_name
+    depth_ims_dir = args.depth_images_dir
+    depth_im_filename = args.depth_image
+    segmask_filename = args.segmask
+    camera_intr_filename = args.camera_intr
+    model_dir = args.model_dir
+    config_filename = args.config_filename
+    fully_conv = args.fully_conv
+    camera_pose_path = args.camera_pose_path
+    user_input_3d_folder = args.user_input_3d_folder
+    user_input_fusion_method = args.user_input_fusion_method
+    user_input_weight = args.user_input_weight
+
+    main(model_name, 
+        depth_ims_dir, 
+        depth_im_filename,
+        segmask_filename, 
+        camera_intr_filename, 
+        model_dir, 
+        config_filename, 
+        fully_conv, 
+        camera_pose_path,
+        user_input_3d_folder, 
+        user_input_fusion_method, 
+        user_input_weight)
