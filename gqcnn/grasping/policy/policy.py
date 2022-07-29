@@ -158,9 +158,9 @@ class RgbdImageStateWithUserInput(RgbdImageState):
                  rgbd_im,
                  camera_intr,
                  segmask=None,
+                 tracepen_point_2d=None,
                  obj_segmask=None,
                  fully_observed=None,
-                 tracepen_point_2d = None,
                  user_input_fusion_method = "linear_distance_scaling",
                  user_input_weight = "medium"):
         """
@@ -190,10 +190,8 @@ class RgbdImageStateWithUserInput(RgbdImageState):
         self.obj_segmask = obj_segmask
         self.fully_observed = fully_observed
         self.tracepen_point_2d = tracepen_point_2d
+        self.user_input_fusion_method = user_input_fusion_method
         self.user_input_weight = user_input_weight
-
-
-
 
 class GraspAction(object):
     """Action to encapsulate grasps.
@@ -1082,7 +1080,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             
             if state.user_input_fusion_method == "linear_distance_scaling" or "quadratic_distance_scaling":
                 # Scale grasp quality by inverse distance
-                q_values = self.scale_q_values_by_distance_penalty(self, grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
+                q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
              
             self._logger.info("Prediction took %.3f sec" %
                               (time() - predict_start))
@@ -1277,7 +1275,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         
         if state.user_input_fusion_method == "linear_distance_scaling" or "quadratic_distance_scaling":
             # Scale grasp quality by inverse distance
-            q_values = self.scale_q_values_by_distance_penalty(self, grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
+            q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
              
         
         self._logger.info("Final prediction took %.3f sec" %
@@ -1353,12 +1351,11 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         """
 
         # transform between thresholds in camera coordinates [mm] to thresholds in pixel coordinates
-        # for 
         if user_input_weight == "low":
             distance_threshold = 150 # pixels
-        if user_input_weight == "medium":
+        elif user_input_weight == "medium":
             distance_threshold = 50 # pixels
-        if user_input_weight == "high":
+        elif user_input_weight == "high":
             distance_threshold = 15 # pixels
         else: 
             raise ValueError('Invalid parameter setting. Choose between "low" "medium" and "high" as user_input_weight.')
@@ -1366,19 +1363,19 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         euclidian_distances = np.zeros(len(grasps))
         q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
         for grasp_idx in range(len(grasps)):
-            euclidian_distances[grasp_idx] = self.calc_distance_grasp_to_user_input(grasps, tracepen_point_2d)
+            euclidian_distances[grasp_idx] = self.calc_distance_grasp_to_user_input(grasps[grasp_idx], tracepen_point_2d)
 
             # linear penalty = 1 if distance = 0; < 1 if distance > 0
-            if distance_penalty == "linear":
+            if user_input_fusion_method == "linear_distance_scaling":
                 distance_penalty = 1 - euclidian_distances[grasp_idx] / distance_threshold 
-            if distance_penalty == "quadratic":
+            if user_input_fusion_method == "quadratic_distance_scaling":
                 distance_penalty = 1 - 0.5 * euclidian_distances[grasp_idx]**2 / distance_threshold**2
             q_values_scaled[grasp_idx] = q_values[grasp_idx] * distance_penalty             
             if q_values_scaled[grasp_idx] <= 0: 
                 q_values_scaled[grasp_idx] = 0
         return q_values_scaled
 
-    def calc_distance_grasp_to_user_input(grasp, tracepen_point_2d):
+    def calc_distance_grasp_to_user_input(self, grasp, tracepen_point_2d):
         distance_x = grasp.center.x - tracepen_point_2d[0][0]
         distance_y = grasp.center.y - tracepen_point_2d[0][1]
         euclidian_distances = math.sqrt(distance_x**2 + distance_y**2)

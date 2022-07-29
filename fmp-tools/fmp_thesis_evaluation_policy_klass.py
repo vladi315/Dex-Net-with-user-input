@@ -52,7 +52,7 @@ from visualization import Visualizer2D as vis
 
 from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
-from fmp_tracepen_camera_projection import (
+from fmp_user_input_camera_projection import (
     generate_mask_from_3d_user_input_pos, project_user_input_to_image)
 
 # Set up logger.
@@ -97,11 +97,11 @@ if __name__ == "__main__":
     parser.add_argument("--user_input_3d_folder",
                         type=str,
                         default=None,
-                        help="path to folder containing tracepen points to use")
+                        help="path to folder containing user_input points to use")
     parser.add_argument("--user_input_fusion_method",
                     type=str,
                     default=None,
-                    help="method how to fuse tracepen user input position with grasp pose predictions. Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
+                    help="method how to fuse user_input user input position with grasp pose predictions. Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
     parser.add_argument("--user_input_weight",
                     type=str,
                     default=None,
@@ -296,40 +296,42 @@ if __name__ == "__main__":
                 vis.imshow(segmask)
             vis.show()
 
-        # Create state.
-        rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
-        
-
-        # Optionally read tracepen points and transform them to pixel coordinates
-        # TODO: rename to traceuser_input_3d_folder
-        if user_input_3d_folder is None: 
-            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
-        else:
-            tracepen_point_2d = project_user_input_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
-            
-            # Visualize projected tracepen points
-            if policy_config["vis"]["tracepen_projection"] == 1:
-                vis.figure(size=(10, 10))
-                vis.imshow(rgbd_im.depth,
-                        vmin=policy_config["vis"]["vmin"],
-                        vmax=policy_config["vis"]["vmax"])
-                vis.scatter(tracepen_point_2d[0,0], tracepen_point_2d[0,1], c="red")
-                vis.title("Projected tracepen points")
-                vis.show()
-
+        if user_input_3d_folder is not None:
+            # Project 3d user input into image plane
+            user_input_point_2d = project_user_input_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+            # use only first point 
+            user_input_point_2d = user_input_point_2d[0:1]
 
         # Optionally read a segmask.
         segmask = None
         if user_input_fusion_method == "masking":
-            segmask_filename = generate_mask_from_3d_user_input_pos(camera_intr, tracepen_point_2d, depth_im_filename, user_input_weight)
+            segmask_filename = generate_mask_from_3d_user_input_pos(camera_intr, user_input_point_2d, depth_im_filename, user_input_weight)
         if segmask_filename is not None:
             segmask = BinaryImage.open(segmask_filename)
         valid_px_mask = depth_im.invalid_pixel_mask().inverse()
-        
         if segmask is None:
             segmask = valid_px_mask
         else:
             segmask = segmask.mask_binary(valid_px_mask)
+
+        # Create state.
+        rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
+        
+        if user_input_3d_folder is None: 
+            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
+            
+        else:            
+            # Visualize projected user_input points
+            if policy_config["vis"]["user_input_projection"] == 1:
+                vis.figure(size=(10, 10))
+                vis.imshow(rgbd_im.depth,
+                        vmin=policy_config["vis"]["vmin"],
+                        vmax=policy_config["vis"]["vmax"])
+                vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="red")
+                vis.title("Projected user_input points")
+                vis.show()
+
+            state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, user_input_point_2d, user_input_fusion_method, user_input_weight)
 
         # Set input sizes for fully-convolutional policy.
         if fully_conv:
@@ -339,12 +341,11 @@ if __name__ == "__main__":
                 "im_width"] = depth_im.shape[1]
 
         # Query policy.
-        state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, tracepen_point_2d, user_input_fusion_method)
         policy_start = time.time()
         action = policy(state)
 
         grasp_quality = action.q_value
-        distance_grasp_to_user_input = action.calc_distance_grasp_to_user_input(action.grasp, tracepen_point_2d)
+        distance_grasp_to_user_input = policy.calc_distance_grasp_to_user_input(action.grasp, user_input_point_2d)
 
         actions.append(action)
         states.append(state)
