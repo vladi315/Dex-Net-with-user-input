@@ -90,7 +90,7 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to configuration file to use")
-    parser.add_argument("--pose_path",
+    parser.add_argument("--camera_pose_path",
                         type=str,
                         default=None,
                         help="path to camera pose file to use")
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--user_input_weight",
                     type=str,
                     default=None,
-                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between low medium and high.")
+                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. Higher values lead to final grasp predictions closer to the user input location. Choose between very low, low, medium, high and very high.")
     parser.add_argument(
         "--fully_conv",
         action="store_true",
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     model_dir = args.model_dir
     config_filename = args.config_filename
     fully_conv = args.fully_conv
-    pose_path = args.pose_path
+    camera_pose_path = args.camera_pose_path
     user_input_3d_folder = args.user_input_3d_folder
     user_input_fusion_method = args.user_input_fusion_method
     user_input_weight = args.user_input_weight
@@ -128,9 +128,10 @@ if __name__ == "__main__":
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
-    assert not (user_input_3d_folder is None and (depth_im_filename is not None or user_input_weight is not None)
-                # TODO: remove one parameter and detect whether a filename or directory is provided
-                ), "Provide either a depth-ims_dir or a depth im_filename, but not both."
+    assert not (user_input_3d_folder is None and (user_input_fusion_method is not None or user_input_weight is not None)
+                ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
+    assert (user_input_weight == "very low" or user_input_weight == "low" or user_input_weight == "medium" or user_input_weight == "high" or user_input_weight == "very high" or 
+                ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
     assert not (depth_ims_dir and depth_im_filename
             # TODO: remove one parameter and detect whether a filename or directory is provided
                 ), "Provide either a depth-ims_dir or a depth im_filename, but not both."
@@ -245,7 +246,7 @@ if __name__ == "__main__":
             raise ValueError("Invalid policy type: {}".format(policy_type))
 
     depth_images = []
-    poses = []
+    camera_poses = []
     actions = []
     states = []
 
@@ -257,14 +258,14 @@ if __name__ == "__main__":
             if file.endswith("depth_raw.png"):
                 depth_images.append(depth_ims_dir + file)
             elif file.endswith("pose.txt"):
-                poses.append(depth_ims_dir + file)
-        if len(poses) == 0:
+                camera_poses.append(depth_ims_dir + file)
+        if len(camera_poses) == 0:
             print("No camera poses found. Please check that they match the required naming format.")
         if len(depth_images) == 0:
             print("No depth images found. Please check that they match the required naming format.")
     else:
         depth_images = [depth_im_filename]
-        poses = [pose_path]
+        camera_poses = [camera_pose_path]
 
     for depth_im_idx in range(len(depth_images)):
         # Read images.
@@ -298,7 +299,7 @@ if __name__ == "__main__":
 
         if user_input_3d_folder is not None:
             # Project 3d user input into image plane
-            user_input_point_2d = project_user_input_to_image(poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+            user_input_point_2d = project_user_input_to_image(camera_poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             # use only first point 
             user_input_point_2d = user_input_point_2d[0:1]
 
@@ -331,7 +332,7 @@ if __name__ == "__main__":
                 vis.title("Projected user_input points")
                 vis.show()
 
-            state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, user_input_point_2d, user_input_fusion_method, user_input_weight)
+            state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, user_input_point_2d, user_input_fusion_method=user_input_fusion_method, user_input_weight=user_input_weight)
 
         # Set input sizes for fully-convolutional policy.
         if fully_conv:
@@ -344,8 +345,9 @@ if __name__ == "__main__":
         policy_start = time.time()
         action = policy(state)
 
-        grasp_quality = action.q_value
-        distance_grasp_to_user_input = policy.calc_distance_grasp_to_user_input(action.grasp, user_input_point_2d)
+        if user_input_3d_folder is not None:
+            grasp_quality = action.q_value
+            distance_grasp_to_user_input = policy.calc_distance_grasp_to_user_input(action.grasp, user_input_point_2d)
 
         actions.append(action)
         states.append(state)
@@ -376,6 +378,7 @@ if __name__ == "__main__":
         vis.title("Planned grasp at depth {0:.3f}m with Q={1:.3f}".format(
             action.grasp.depth, action.q_value))
         vis.show()
+        test = 1
             
-test = 1
+test = 1   
 

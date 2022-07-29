@@ -1078,10 +1078,11 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
                                               grasps,
                                               params=self._config)
             
-            if state.user_input_fusion_method == "linear_distance_scaling" or "quadratic_distance_scaling":
-                # Scale grasp quality by inverse distance
-                q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
-             
+            if hasattr(state, 'user_input_fusion_method'):
+                if state.user_input_fusion_method == "linear_distance_scaling" or state.user_input_fusion_method == "quadratic_distance_scaling":
+                    # Scale grasp quality by inverse distance
+                    q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.camera_intr, state.user_input_fusion_method, state.user_input_weight)
+                         
             self._logger.info("Prediction took %.3f sec" %
                               (time() - predict_start))
 
@@ -1273,10 +1274,10 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         predict_start = time()
         q_values = self._grasp_quality_fn(state, grasps, params=self._config)
         
-        if state.user_input_fusion_method == "linear_distance_scaling" or "quadratic_distance_scaling":
-            # Scale grasp quality by inverse distance
-            q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.user_input_fusion_method, state.user_input_weight)
-             
+        if hasattr(state, 'user_input_fusion_method'):
+            if state.user_input_fusion_method is "linear_distance_scaling" or state.user_input_fusion_method is "quadratic_distance_scaling":
+                # Scale grasp quality by inverse distance
+                q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.camera_intr, state.user_input_fusion_method, state.user_input_weight)
         
         self._logger.info("Final prediction took %.3f sec" %
                           (time() - predict_start))
@@ -1322,7 +1323,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
         return grasps, q_values
 
-    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, user_input_fusion_method = "linear_distance_scaling", user_input_weight = "medium"):
+    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, camera_intrinsics, user_input_fusion_method = "linear_distance_scaling", user_input_weight = "medium"):
         """
         Reduce quality of grasps by distance from tracepen point 
         
@@ -1338,8 +1339,6 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         tracepen_point_2d : np array
             Tracepen point.
         user_input_fusion_method:
-        distance_threshold : int
-            Distance in pixels at which the quality is scaled by 0.5.
         user_input_fusion_method: str
 
         user_input_weight: str
@@ -1350,15 +1349,23 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             The q_value vector scaled by the linear distance.
         """
 
-        # transform between thresholds in camera coordinates [mm] to thresholds in pixel coordinates
-        if user_input_weight == "low":
-            distance_threshold = 150 # pixels
-        elif user_input_weight == "medium":
-            distance_threshold = 50 # pixels
+        # Distance in meters at which the quality is scaled by 0.5.        
+        if user_input_weight == "very high":
+            distance_threshold_in_m = 0.005
         elif user_input_weight == "high":
-            distance_threshold = 15 # pixels
-        else: 
+            distance_threshold_in_m = 0.015
+        elif user_input_weight == "medium":
+            distance_threshold_in_m = 0.045
+        elif user_input_weight == "low":
+            distance_threshold_in_m = 0.135
+        elif user_input_weight == "very low":
+            distance_threshold_in_m = 0.405
+        else:
             raise ValueError('Invalid parameter setting. Choose between "low" "medium" and "high" as user_input_weight.')
+
+        # transform from meters to pixels
+        depth = 0.7 # [m]; TODO: replace by precise measurement
+        distance_threshold_in_pixels = int(distance_threshold_in_m * camera_intrinsics.K[1,1] / depth)
 
         euclidian_distances = np.zeros(len(grasps))
         q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
@@ -1367,9 +1374,9 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
             # linear penalty = 1 if distance = 0; < 1 if distance > 0
             if user_input_fusion_method == "linear_distance_scaling":
-                distance_penalty = 1 - euclidian_distances[grasp_idx] / distance_threshold 
+                distance_penalty = 1 - euclidian_distances[grasp_idx] / distance_threshold_in_pixels 
             if user_input_fusion_method == "quadratic_distance_scaling":
-                distance_penalty = 1 - 0.5 * euclidian_distances[grasp_idx]**2 / distance_threshold**2
+                distance_penalty = 1 - 0.5 * euclidian_distances[grasp_idx]**2 / distance_threshold_in_pixels**2
             q_values_scaled[grasp_idx] = q_values[grasp_idx] * distance_penalty             
             if q_values_scaled[grasp_idx] <= 0: 
                 q_values_scaled[grasp_idx] = 0
@@ -1407,7 +1414,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
         # Select grasp.
         index = self.select(grasps, q_values)
         grasp = grasps[index]
-        q_value = q_values[index]
+        q_value = self._grasp_quality_fn(state, grasps[index:index+1], params=self._config)[0]
         if self.config["vis"]["grasp_plan"]:
             title = "Best Grasp: d=%.3f, q=%.3f" % (grasp.depth, q_value)
             vis.figure()

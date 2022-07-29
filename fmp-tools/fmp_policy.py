@@ -85,7 +85,7 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to configuration file to use")
-    parser.add_argument("--pose_path",
+    parser.add_argument("--camera_pose_path",
                         type=str,
                         default=None,
                         help="path to camera pose file to use")
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     model_dir = args.model_dir
     config_filename = args.config_filename
     fully_conv = args.fully_conv
-    pose_path = args.pose_path
+    camera_pose_path = args.camera_pose_path
     pen_folder = args.pen_folder
 
     assert not (fully_conv and depth_im_filename is not None
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     if depth_ims_dir is not None:
         # get all filenames
         depth_images = []
-        poses = []
+        camera_poses = []
         actions = []
         states = []
         list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(depth_ims_dir, x)),
@@ -235,10 +235,10 @@ if __name__ == "__main__":
             if file.endswith("depth_raw.png"):
                 depth_images.append(depth_ims_dir + file)
             elif file.endswith("pose.txt"):
-                poses.append(depth_ims_dir + file)
+                camera_poses.append(depth_ims_dir + file)
     else:
         depth_images = [depth_im_filename]
-        poses = [pose_path]
+        camera_poses = [camera_pose_path]
 
     for depth_im_idx in range(len(depth_images)):
         # Read images.
@@ -288,10 +288,10 @@ if __name__ == "__main__":
         # Optionally read tracepen points and transform them to pixel coordinates
         # TODO: rename to tracepen_folder
         if pen_folder is not None: 
-            tracepen_point_2d = project_tracepen_points_to_image(poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+            tracepen_point_2d = project_tracepen_points_to_image(camera_poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             
             # Visualize projected tracepen points
-            if policy_config["vis"]["tracpen_projection"] == 1:
+            if policy_config["vis"]["tracepen_projection"] == 1:
                 vis.figure(size=(10, 10))
                 vis.imshow(rgbd_im.depth,
                         vmin=policy_config["vis"]["vmin"],

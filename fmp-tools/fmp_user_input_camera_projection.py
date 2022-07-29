@@ -23,7 +23,7 @@ def projection(camera_pose, points_3d, camera_matrix, camera_height, camera_widt
     
     return np.array(points_ref)
 
-def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_input, img_path, user_input_weight = "medium", depth = 0.7):
+def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_input, img_path, user_input_weight = "low", depth = 0.7):
     '''
     projected_2d_user_input: user input points projected from world to image coordinates
     img_path: path of the image to be masked
@@ -35,12 +35,17 @@ def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_in
     camera_intrinsics_matrix = camera_intrinsics.K
 
     # calculate radius around user input position that will be masked [m]
-    if user_input_weight == "low":
+    if user_input_weight == "very high":
         mask_radius_in_m = 0.005
-    elif user_input_weight == "medium":
-        mask_radius_in_m = 0.015
     elif user_input_weight == "high":
-        mask_radius_in_m = 0.03
+        mask_radius_in_m = 0.015
+    elif user_input_weight == "medium":
+        mask_radius_in_m = 0.045
+    elif user_input_weight == "low":
+        mask_radius_in_m = 0.135
+    elif user_input_weight == "very low":
+        mask_radius_in_m = 0.405
+    
         
     # transform from meters to pixels
     mask_radius_in_pixels = int(mask_radius_in_m * camera_intrinsics_matrix[1,1] / depth)
@@ -55,8 +60,8 @@ def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_in
     cv2.imwrite(file_name, mask_image)
     return file_name
 
-def project_user_input_to_image(pose_path, pen_folder,  K, H, W):
-    pose = np.loadtxt(pose_path)
+def project_user_input_to_image(camera_pose_path, pen_folder,  K, H, W):
+    pose = np.loadtxt(camera_pose_path)
     pen_files = sorted(glob.glob(os.path.join(pen_folder, "*")))
     pen_points = [np.loadtxt(f) for f in pen_files]
     tracepen_point_2d = projection(pose, pen_points, K, H, W)
@@ -71,16 +76,20 @@ def visualize_tracepen_projection_rgb(img_path, tracepen_point_2d):
 
 if __name__ == '__main__':
     # Basler
-    camera_intrinsics = dict()
-    camera_intrinsics.K = np.array([856.657396, 0.0,  611.745622, 0.0, 858.802578, 514.072871, 0.0, 0.0, 1.0]).reshape(3,3)
-    camera_intrinsics.width = 1280
-    camera_intrinsics.heigth = 1024
+    
+    class Camera_intrinsics:
+        def __init__(self):
+            self.K = np.array([856.657396, 0.0,  611.745622, 0.0, 858.802578, 514.072871, 0.0, 0.0, 1.0]).reshape(3,3)
+            self.width = 1280
+            self.height = 1024
+
+    camera_intrinsics = Camera_intrinsics()
 
     img_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/0_depth.png"
-    pose_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/testtransforms_0.txt"
+    camera_pose_path = "/home/vladislav/gqcnn/fmp-tools/test-25-07/testtransforms_0.txt"
     pen_folder = "/home/vladislav/gqcnn/fmp-tools/test-25-07/points"
-    projected_2d_user_input = project_user_input_to_image(pose_path, pen_folder,  K, H, W)
-    visualize_tracepen_projection_rgb(img_path, project_user_input_to_image)
+    projected_2d_user_input = project_user_input_to_image(camera_pose_path, pen_folder,  camera_intrinsics.K, camera_intrinsics.height, camera_intrinsics.width)
+    visualize_tracepen_projection_rgb(img_path, projected_2d_user_input)
 
     # generate mask around tracepen points
     mask_radius = 0.03
