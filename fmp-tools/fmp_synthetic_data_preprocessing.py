@@ -4,6 +4,12 @@ import os
 import numpy as np
 from cv2 import transform
 
+def findAllSubdirectories(base):
+    dir_list = []
+    for file in os.scandir(base):
+        if file.is_dir():
+            file_list.append(file.path)
+    return dir_list
 
 def findAllFile(base, suffix):
     '''
@@ -21,9 +27,9 @@ def findAllFile(base, suffix):
 def sample_points(point_number = 10):
     points = []
     for point_idx in range(point_number):
-        mean = [0.0, 0.0, 0.005]
-        standard_deviations = [0.01, 0.01, 0.005]
-        points.append( np.random.normal(mean, standard_deviations))
+        min = [-0.03, -0.03, 0]
+        max = [0.03, 0.03, 0.03]
+        points.append(np.random.uniform(low=min, high=max, size=(3)))
     return points
 
 def save_points(points, points_dir):
@@ -65,9 +71,9 @@ if __name__ == '__main__':
         poses_dir = parent_dir + "poses/"
         save_camera_poses(transform_matrices, poses_dir)
 
-        # fake and save tracepen points
+        # fake and save 3d user input points
         point_number = 10
         points = sample_points(point_number)
-        points_dir = parent_dir + "tracepen_points/"
+        points_dir = parent_dir + "user_input_points/"
         save_points(points, points_dir)
 

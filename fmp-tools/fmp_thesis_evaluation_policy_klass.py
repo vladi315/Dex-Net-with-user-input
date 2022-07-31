@@ -69,7 +69,8 @@ def main(model_name,
         camera_pose_path = None, 
         user_input_3d_folder = None, 
         user_input_fusion_method = None, 
-        user_input_weight = None
+        user_input_weight = None,
+        user_input_point_number = 0 # this variable controls which user input point is loaded during the evaluation
         ):
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
@@ -247,7 +248,7 @@ def main(model_name,
             # Project 3d user input into image plane
             user_input_point_2d = project_user_input_to_image(camera_poses[depth_im_idx], user_input_3d_folder, camera_intr.K, camera_intr.height, camera_intr.width)
             # use only first point 
-            user_input_point_2d = user_input_point_2d[0:1]
+            user_input_point_2d = user_input_point_2d[user_input_point_number:user_input_point_number+1]
 
         # Optionally read a segmask.
         segmask = None
