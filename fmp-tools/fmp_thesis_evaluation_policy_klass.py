@@ -38,6 +38,7 @@ import json
 import os
 import time
 
+import cv2
 import numpy as np
 from autolab_core import (BinaryImage, CameraIntrinsics, ColorImage,
                           DepthImage, Logger, RgbdImage, YamlConfig)
@@ -58,7 +59,7 @@ from fmp_user_input_camera_projection import (
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
 
-def main(model_name,
+def run_dex_net(model_name,
         depth_ims_dir  = None,
         depth_im_filename = None, 
         segmask_filename = None, 
@@ -77,7 +78,7 @@ def main(model_name,
                 ), "Fully-Convolutional policy expects a segmask."
     assert not (user_input_3d_folder is None and (user_input_fusion_method is not None or user_input_weight is not None)
                 ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
-    assert (user_input_weight == "very low" or user_input_weight == "low" or user_input_weight == "medium" or user_input_weight == "high" or user_input_weight == "very high" 
+    assert (user_input_weight == "zero" or user_input_weight == "very low" or user_input_weight == "low" or user_input_weight == "medium" or user_input_weight == "high" or user_input_weight == "very high" 
                 ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_folder."
     assert not (depth_ims_dir and depth_im_filename
             # TODO: remove one parameter and detect whether a filename or directory is provided
@@ -253,7 +254,32 @@ def main(model_name,
         # Optionally read a segmask.
         segmask = None
         if user_input_fusion_method == "masking":
-            segmask_filename = generate_mask_from_3d_user_input_pos(camera_intr, user_input_point_2d, depth_im_filename, user_input_weight)
+            if segmask_filename is not None:
+                # combine two segmentation masks (one from object segmentation, one from user input)
+                segmask_user_input_filename =  generate_mask_from_3d_user_input_pos(camera_intr, user_input_point_2d, depth_im_filename, user_input_weight)
+                segmask_user_input = cv2.imread(segmask_user_input_filename, cv2.IMREAD_GRAYSCALE)
+                segmask = cv2.imread(segmask_filename, cv2.IMREAD_GRAYSCALE)
+
+                # Binarize both segmasks
+                thresh = 127
+                segmask_user_input = cv2.threshold(segmask_user_input, thresh, 255, cv2.THRESH_BINARY)[1]
+                segmask = cv2.threshold(segmask, thresh, 255, cv2.THRESH_BINARY)[1]
+                bitwiseAnd = np.bitwise_and(segmask_user_input, segmask)
+                segmask_filename = depth_im_filename[:-4] + 'combined_segmask.png'
+                cv2.imwrite(segmask_filename, bitwiseAnd)                
+            else:
+                segmask_filename = generate_mask_from_3d_user_input_pos(camera_intr, user_input_point_2d, depth_im_filename, user_input_weight)
+            
+            # TODO: invoke mask display over model.yaml files
+            # if policy_config["vis"]["user_input_projection"] == 1:
+            #     vis.figure(size=(10, 10))
+            #     vis.imshow(rgbd_im.depth,
+            #             vmin=policy_config["vis"]["vmin"],
+            #             vmax=policy_config["vis"]["vmax"])
+            #     vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="red")
+            #     vis.title("Projected user input points")
+            #     vis.show()
+
         if segmask_filename is not None:
             segmask = BinaryImage.open(segmask_filename)
         valid_px_mask = depth_im.invalid_pixel_mask().inverse()
@@ -276,7 +302,7 @@ def main(model_name,
                         vmin=policy_config["vis"]["vmin"],
                         vmax=policy_config["vis"]["vmax"])
                 vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="red")
-                vis.title("Projected user_input points")
+                vis.title("Projected user input points")
                 vis.show()
 
             state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, user_input_point_2d, user_input_fusion_method=user_input_fusion_method, user_input_weight=user_input_weight)
@@ -415,7 +441,7 @@ if __name__ == "__main__":
     user_input_fusion_method = args.user_input_fusion_method
     user_input_weight = args.user_input_weight
 
-    main(model_name, 
+    run_dex_net(model_name, 
         depth_ims_dir, 
         depth_im_filename,
         segmask_filename, 

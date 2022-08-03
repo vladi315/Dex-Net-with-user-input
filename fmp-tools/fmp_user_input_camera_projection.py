@@ -45,6 +45,8 @@ def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_in
         mask_radius_in_m = 0.135
     elif user_input_weight == "very low":
         mask_radius_in_m = 0.405
+    elif user_input_weight == "zero":
+        mask_radius_in_m = 1000
     
         
     # transform from meters to pixels
@@ -52,13 +54,14 @@ def generate_mask_from_3d_user_input_pos(camera_intrinsics, projected_2d_user_in
     mask_image = np.zeros((image_height, image_width, 3), np.uint8)
     for i in range(len(projected_2d_user_input)):
         cv2.circle(mask_image, projected_2d_user_input[i], mask_radius_in_pixels, (255, 255, 255), -1)
+
     plt.imshow(mask_image)
     plt.show()
 
     # save mask
     file_name = img_path.strip('.png') + '_user_input_mask.png'
     cv2.imwrite(file_name, mask_image)
-    return file_name
+    return file_name # TODO: refactor, to return data instead of the saved file name
 
 def project_user_input_to_image(camera_pose_path, pen_folder,  K, H, W):
     pose = np.loadtxt(camera_pose_path)
@@ -71,7 +74,7 @@ def project_user_input_to_image(camera_pose_path, pen_folder,  K, H, W):
 def visualize_tracepen_projection_rgb(img_path, tracepen_point_2d):
     img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     plt.imshow(img)
-    plt.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="red")
+    plt.scatter(tracepen_point_2d[:,0], tracepen_point_2d[:,1], c="blue")
     plt.show()
 
 if __name__ == '__main__':
