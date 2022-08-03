@@ -19,7 +19,7 @@ policy:
     type: suction
 
     # params
-    max_suction_dir_optical_axis_angle: 30
+    max_suction_dir_optical_axis_angle: 45
     delta_theta: 5
     delta_phi: 5
     sigma_depth: 0.0025
@@ -36,23 +36,24 @@ policy:
     type: gqcnn
     gqcnn_model: models/GQCNN-4.0-SUCTION
 
-    crop_height: 96
-    crop_width: 96
+    crop_height: 192
+    crop_width: 192
 
   # visualization
   vis:
+    user_input_projection : 1
     grasp_sampling : 0
     tf_images: 0
     plane: 0
     grasp_candidates: 0
-    elite_grasps: 0
+    elite_grasps: 1
     grasp_ranking: 0
     grasp_plan: 0
     grasp_affordance_map: 0
     final_grasp: 1
 
-    vmin: 0.0
-    vmax: 1.0
+    vmin: 0.6
+    vmax: 0.8
 
     k: 25
 
