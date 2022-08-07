@@ -4,11 +4,12 @@ import os
 import numpy as np
 from cv2 import transform
 
+
 def findAllSubdirectories(base):
     dir_list = []
     for file in os.scandir(base):
         if file.is_dir():
-            file_list.append(file.path)
+            dir_list.append(file.path)
     return dir_list
 
 def findAllFile(base, suffix):
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     ''' 
     This script converts saved camera poses from the NeRF to the Dex-Net format.
     '''
-    root_path = './data/virtual_evaluation/'
+    root_path = './data/virtual_evaluation/19objs4vladi/renderings/'
     file_list = sorted(findAllFile(root_path, 'transforms_.json'))
     print(file_list)
     for camera_pose_path in file_list:

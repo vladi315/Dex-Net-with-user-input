@@ -301,7 +301,7 @@ def run_dex_net(model_name,
                 vis.imshow(rgbd_im.depth,
                         vmin=policy_config["vis"]["vmin"],
                         vmax=policy_config["vis"]["vmax"])
-                vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="red")
+                vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="#000000", marker = "x")
                 vis.title("Projected user input points")
                 vis.show()
 
@@ -317,7 +317,6 @@ def run_dex_net(model_name,
         # Query policy.
         policy_start = time.time()
         action = policy(state)
-
 
         if user_input_3d_folder is not None:            
             mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = calc_evaluation_metrics(
