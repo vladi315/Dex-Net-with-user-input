@@ -103,7 +103,28 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
 
     
         # Save data to csv
-        evaluation_scheme.to_csv(evaluation_dir + '/virtual_experiments_results_suction.csv', index=False)        
+
+def evaluate_multi_image_grasp_pose_prediction(evaluation_file_path):
+    data = pd.read_csv(evaluation_file_path)
+    data.loc[data["distance_grasp_to_user_input_norm"].isnull(), "distance_grasp_to_user_input_norm"] = 0
+    data = data.drop(["user_input_point_number"], axis=1)
+    max_idx = data.groupby(["object_path"])['mean_evaluation_metric'].transform(max) == data['mean_evaluation_metric']
+    multi_image_max = data[max_idx]
+    multi_image_max = multi_image_max.drop_duplicates()
+    print("Mean metrics of best grasp per object with multi-image grasp pose prediction: ")
+    print(multi_image_max.mean())
+    print("Multi-image evaluation metrics per object")
+    print(multi_image_max.drop(["user input fusion method", "user input weight"], axis=1))
+
+    # get the first view of every object
+    data_single_image = data.iloc[::36, :]
+    print("Mean metrics of best grasp per object with single-image grasp pose prediction: ")
+    print(data_single_image.mean())
+
+    print("Single-image evaluation metrics per object")
+    print(data.iloc[::36, :].drop(["user input fusion method", "user input weight"], axis=1))
+    1
+
 
 def postprocess_experiment_data(evaluation_file_path):
     # df = pd.read_csv(evaluation_dir + '/virtual_experiments_results.csv')
@@ -167,9 +188,14 @@ if __name__ == '__main__':
     # run_virtual_experiments(model_name, camera_intr_filename, config_filename, evaluation_dir)
 
 
-    file_name = "virtual_experiments_results_pj.csv"
-    evaluation_file_path = evaluation_dir + file_name
-    postprocess_experiment_data(evaluation_file_path)
+    virtual_experiments_file = "virtual_experiments_results_suction (copy).csv" # virtual_experiments_results_pj.csv
+    virtual_experiments_path = evaluation_dir + virtual_experiments_file
+    postprocess_experiment_data(virtual_experiments_path)
+
+    # evaluate the effect of the multi-image grasp pose prediction. 
+    multi_image_grasp_pose_prediction_file = "virtual_experiments_dome_pj_medium_masking.csv" # virtual_experiments_dome_pj_medium_masking.csv virtual_experiments_results_pj.csv
+    multi_image_grasp_pose_prediction_path = evaluation_dir + multi_image_grasp_pose_prediction_file
+    # evaluate_multi_image_grasp_pose_prediction(multi_image_grasp_pose_prediction_path)
 
 
 
