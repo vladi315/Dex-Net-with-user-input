@@ -50,36 +50,39 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
             point_list = sorted(findAllFile(object_dir + "/user_input_points/", 'point.txt'))
             # iterate through all saved user input points 
                 
-            if "suction" in config_filename or "dex-net_3.0" in config_filename:
-                # load segmentation mask
+            segmask_filename = None
+            # load object segmentation mask 
+            last_slash_index = object_dir[::-1].index("/")
+            obect_name = object_dir[-last_slash_index:]
+            segmask_filename = evaluation_dir + "/../masks/" + obect_name + "_mask/" + str(view_idx) + ".png"
 
-                last_slash_index = object_dir[::-1].index("/")
-                obect_name = object_dir[-last_slash_index:]
 
-                segmask_filename = evaluation_dir + "/../masks/" + obect_name + "_mask/" + str(view_idx) + ".png"
-            else: 
-                segmask_filename = None
-
-            for user_input_fusion_method in ["masking", "linear_distance_scaling", "quadratic_distance_scaling"]: # ["masking", "linear_distance_scaling", "quadratic_distance_scaling"]:
+            for user_input_fusion_method in [None, "masking", "linear_distance_scaling", "quadratic_distance_scaling",]: # ["masking", "linear_distance_scaling", "quadratic_distance_scaling"]:
                 for user_input_weight in ["low", "medium", "high", "very high"]: # ["low", "medium", "high", "very high"]
-                    for point_idx in range(min(len(point_list), 10)): # limit user input points max to save computation time
-
+                    for point_idx in range(min(len(point_list), 1)): # limit user input points max to save computation time
                         try:
-                            mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = run_dex_net(
-                                model_name,
-                                depth_ims_dir  = None,
-                                depth_im_filename = view, 
-                                segmask_filename = segmask_filename, 
-                                camera_intr_filename = camera_intr_filename, 
-                                model_dir = None, 
-                                config_filename = config_filename, 
-                                fully_conv = None, 
-                                camera_pose_path = camera_pose_path, 
-                                user_input_3d_folder = user_input_3d_folder, 
-                                user_input_fusion_method = user_input_fusion_method, 
-                                user_input_weight = user_input_weight,
-                                user_input_point_number = point_idx
-                                )
+                            if user_input_fusion_method is None:
+                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = run_dex_net(
+                                    model_name,
+                                    depth_im_filename = view,
+                                    segmask_filename = segmask_filename,
+                                    camera_intr_filename = camera_intr_filename, 
+                                    config_filename = config_filename, 
+                                    )
+                                
+                            else:
+                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = run_dex_net(
+                                    model_name,
+                                    depth_im_filename = view, 
+                                    segmask_filename = segmask_filename, 
+                                    camera_intr_filename = camera_intr_filename, 
+                                    config_filename = config_filename, 
+                                    camera_pose_path = camera_pose_path, 
+                                    user_input_3d_folder = user_input_3d_folder, 
+                                    user_input_fusion_method = user_input_fusion_method, 
+                                    user_input_weight = user_input_weight,
+                                    user_input_point_number = point_idx
+                                    )
                             print(mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm)
                             experiment = pd.DataFrame({'object_path': [object_dir], 
                             'user_input_point_number':[point_idx], 
@@ -88,6 +91,7 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
                             'distance_grasp_to_user_input_norm':[distance_grasp_to_user_input_norm], 
                             'grasp_quality':[grasp_quality], 
                             'mean_evaluation_metric':[mean_evaluation_metric]})
+
                         except:
                             # If no valid grasps are found
                             print("No valid grasp")
@@ -95,14 +99,17 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
                             'user_input_point_number':[point_idx], 
                             'user input fusion method':[user_input_fusion_method], 
                             'user input weight':[user_input_weight], 
-                            'distance_grasp_to_user_input_norm':[NaN], 
+                            'distance_grasp_to_user_input_norm':[0], 
                             'grasp_quality':[0], 
                             'mean_evaluation_metric':[0]})
                         
                         evaluation_scheme = evaluation_scheme.append(experiment)
 
+                        if user_input_fusion_method is None:
+                            break
     
         # Save data to csv
+        evaluation_scheme.to_csv(evaluation_dir + '/virtual_experiments_suction.csv', index=False)        
 
 def evaluate_multi_image_grasp_pose_prediction(evaluation_file_path):
     data = pd.read_csv(evaluation_file_path)
@@ -127,9 +134,9 @@ def evaluate_multi_image_grasp_pose_prediction(evaluation_file_path):
 
 
 def postprocess_experiment_data(evaluation_file_path):
-    # df = pd.read_csv(evaluation_dir + '/virtual_experiments_results.csv')
     data = pd.read_csv(evaluation_file_path)
     data['user input weight'] = pd.Categorical(data['user input weight'], ["low", "medium", "high", "very high"])
+    data.loc[data["distance_grasp_to_user_input_norm"].isnull(), "distance_grasp_to_user_input_norm"] = 0
 
     masking_data = data[data["user input fusion method"] == "masking"]
     linear_distance_scaling_data = data[data["user input fusion method"] == "linear_distance_scaling"]
@@ -141,14 +148,15 @@ def postprocess_experiment_data(evaluation_file_path):
     plot_data = {"data": [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data], "names": ["masking", "linear distance scaling", "quadratic distance scaling"]}
     for ax_idx, ax in enumerate(axs): # range(len(plot_data["data"])): # [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data]:
         # if ax_idx==0:     
-        #     
-        means = plot_data["data"][ax_idx].groupby(["user input weight"]).mean()
+        # TODO add comment, check if means is correct
+        means = plot_data["data"][ax_idx].groupby(["user input weight"]).mean() # 
         means = means.drop(["user_input_point_number"], axis=1)
+        print(means)
         means.plot.bar(ax=ax, color=['#0065BD', '#64A0C8', '#98C6EA'])
         ax.get_legend().remove()
         title = chr(97 + ax_idx) + ")"
         ax.set_title(title, loc='left')
-        ax.set_ylim([0, 1])
+        ax.set_ylim([0, 0.9])
         if ax_idx < 2:
             ax.set_xlabel("")
             x_labels = ax.get_xticklabels()
@@ -158,14 +166,15 @@ def postprocess_experiment_data(evaluation_file_path):
 
     plt.xticks(rotation='horizontal')
     plt.show()
-    fig.savefig('Results_pj.png', dpi=100)
-
+    save_file_path = evaluation_file_path.rstrip(".csv") + ".svg"
+    fig.savefig(save_file_path, dpi=300, format='svg')
+    test = 1
 
 
     # One figure only
     # plot_data = {"data": [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data], "names": ["masking", "linear distance scaling", "quadratic distance scaling"]}
     # for i in range(len(plot_data["data"])): # [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data]:
-    #     means = plot_data["data"][i].groupby(["user input weight"]).mean()
+    #     means = plot_data["data"][i].groupby(["user input weight"]).mean(skipna=False)
     #     means = means.drop(["user_input_point_number"], axis=1)
     #     means.plot.bar(color=['#0065BD', '#64A0C8', '#98C6EA'])
     #     plt.title("Virtual evaluation result for  " + plot_data["names"][i] + " method")
@@ -183,8 +192,9 @@ if __name__ == '__main__':
     model_name = "GQCNN-4.0-SUCTION" #  GQCNN-4.0-PJ GQCNN-2.0 GQCNN-4.0-SUCTION GQCNN-3.0 FCGQCNN-4.0-SUCTION
     camera_intr_filename = "data/calib/basler/basler.intr"
     config_filename = "cfg/examples/replication/dex-net_4.0_suction.yaml" # dex-net_4.0_pj.yaml dex-net_2.0.yaml dex-net_4.0_suction.yaml
-    evaluation_dir = "/home/vladislav/gqcnn/data/virtual_evaluation/19objs4vladi/renderings/"
+    evaluation_dir = "/home/vladislav/gqcnn/data/virtual_evaluation/19objs4vladi_suction/renderings/"
 
+    # run virtual experiments 
     # run_virtual_experiments(model_name, camera_intr_filename, config_filename, evaluation_dir)
 
 
