@@ -42,10 +42,10 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
         # get all camera view points
         print("Load object:" + object_dir)
         view_list = sorted(findAllFile(object_dir, 'depth_raw.png'))
-        for view_idx, view in enumerate(view_list[0:1]): # to save computatin time, only use the first view
+        for view_idx, view in enumerate(view_list[0:1]): # to save computation time, only use the first view
             # set paths
             camera_pose_path = object_dir + "/poses/" + str(view_idx) + "_pose.txt"
-            user_input_3d_folder = object_dir + "/user_input_points"
+            user_input_3d_dir = object_dir + "/user_input_points"
 
             point_list = sorted(findAllFile(object_dir + "/user_input_points/", 'point.txt'))
             # iterate through all saved user input points 
@@ -57,28 +57,30 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
             segmask_filename = evaluation_dir + "/../masks/" + obect_name + "_mask/" + str(view_idx) + ".png"
 
 
-            for user_input_fusion_method in [None, "masking", "linear_distance_scaling", "quadratic_distance_scaling",]: # ["masking", "linear_distance_scaling", "quadratic_distance_scaling"]:
+            for user_input_fusion_method in ["No_user_input", "masking", "linear_distance_scaling", "quadratic_distance_scaling",]: # ["No_user_input", "masking", "linear_distance_scaling", "quadratic_distance_scaling"]:
                 for user_input_weight in ["low", "medium", "high", "very high"]: # ["low", "medium", "high", "very high"]
-                    for point_idx in range(min(len(point_list), 1)): # limit user input points max to save computation time
+                    for point_idx in range(min(len(point_list), 10)): # limit user input points max to save computation time
                         try:
-                            if user_input_fusion_method is None:
-                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = run_dex_net(
+                            if user_input_fusion_method == "No_user_input":
+                                user_input_fusion_method = None
+                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm, _ = run_dex_net(
                                     model_name,
                                     depth_im_filename = view,
                                     segmask_filename = segmask_filename,
                                     camera_intr_filename = camera_intr_filename, 
                                     config_filename = config_filename, 
+                                    user_input_3d_dir = user_input_3d_dir,
+                                    user_input_weight = None
                                     )
-                                
                             else:
-                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm = run_dex_net(
+                                mean_evaluation_metric, grasp_quality, distance_grasp_to_user_input_norm, _ = run_dex_net(
                                     model_name,
                                     depth_im_filename = view, 
                                     segmask_filename = segmask_filename, 
                                     camera_intr_filename = camera_intr_filename, 
                                     config_filename = config_filename, 
                                     camera_pose_path = camera_pose_path, 
-                                    user_input_3d_folder = user_input_3d_folder, 
+                                    user_input_3d_dir = user_input_3d_dir, 
                                     user_input_fusion_method = user_input_fusion_method, 
                                     user_input_weight = user_input_weight,
                                     user_input_point_number = point_idx
@@ -105,8 +107,9 @@ def run_virtual_experiments(model_name, camera_intr_filename, config_filename, e
                         
                         evaluation_scheme = evaluation_scheme.append(experiment)
 
-                        if user_input_fusion_method is None:
-                            break
+                        # TODO: delete
+                        # if user_input_fusion_method is None:
+                        #     break
     
         # Save data to csv
         evaluation_scheme.to_csv(evaluation_dir + '/virtual_experiments_suction.csv', index=False)        
@@ -138,14 +141,15 @@ def postprocess_experiment_data(evaluation_file_path):
     data['user input weight'] = pd.Categorical(data['user input weight'], ["low", "medium", "high", "very high"])
     data.loc[data["distance_grasp_to_user_input_norm"].isnull(), "distance_grasp_to_user_input_norm"] = 0
 
+    raw_dex_net_data = data[data["user input fusion method"].isnull()]
     masking_data = data[data["user input fusion method"] == "masking"]
     linear_distance_scaling_data = data[data["user input fusion method"] == "linear_distance_scaling"]
     quadratic_distance_scaling_data = data[data["user input fusion method"] == "quadratic_distance_scaling"]
     
-    fig, axs = plt.subplots(3)
+    fig, axs = plt.subplots(4)
     fig.set_size_inches(5.8, 7.6)
 
-    plot_data = {"data": [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data], "names": ["masking", "linear distance scaling", "quadratic distance scaling"]}
+    plot_data = {"data": [raw_dex_net_data, masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data], "names": ["raw dex net", "masking", "linear distance scaling", "quadratic distance scaling"]}
     for ax_idx, ax in enumerate(axs): # range(len(plot_data["data"])): # [masking_data, linear_distance_scaling_data, quadratic_distance_scaling_data]:
         # if ax_idx==0:     
         # TODO add comment, check if means is correct
@@ -198,7 +202,7 @@ if __name__ == '__main__':
     # run_virtual_experiments(model_name, camera_intr_filename, config_filename, evaluation_dir)
 
 
-    virtual_experiments_file = "virtual_experiments_results_suction (copy).csv" # virtual_experiments_results_pj.csv
+    virtual_experiments_file = "virtual_experiments_suction.csv" # virtual_experiments_results_pj.csv
     virtual_experiments_path = evaluation_dir + virtual_experiments_file
     postprocess_experiment_data(virtual_experiments_path)
 
