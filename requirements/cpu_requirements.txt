@@ -10,3 +10,14 @@ scikit-learn
 scikit-image
 gputil
 psutil
+pandas
+
+# requirements for statistical analysis of evaluation
+natsort
+scikit-posthocs
+pyyaml
+notebook
+
+# requirements for inference on physical robot
+transformations
+transforms3d

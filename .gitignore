@@ -91,6 +91,10 @@ ENV/
 .#*
 #*
 
-fmp-tools/archive/
 *settings.json
 =
+*.npy
+*.hdf5
+*.json
+
+
