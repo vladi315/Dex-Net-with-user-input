@@ -78,7 +78,7 @@ class RgbdImageState(object):
             Segmentation mask for the different objects in the image.
         full_observed : :obj:`object`
             Representation of the fully observed state.
-        tracepen_points_2d : :arr:`np.array` # TODO: check if datatype is right
+        tracepen_points_2d : :arr:`np.array`
             tracepen points projected to pixel coordinates.
         """
         self.rgbd_im = rgbd_im
@@ -162,7 +162,7 @@ class RgbdImageStateWithUserInput(RgbdImageState):
                  obj_segmask=None,
                  fully_observed=None,
                  user_input_fusion_method = "linear_distance_scaling",
-                 user_input_weight = "medium"):
+                 user_input_weight = "high"):
         """
         Parameters
         ----------
@@ -1080,7 +1080,7 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
             
             if hasattr(state, 'user_input_fusion_method'):
                 if state.user_input_fusion_method == "linear_distance_scaling" or state.user_input_fusion_method == "quadratic_distance_scaling":
-                    # Scale grasp quality by inverse distance
+                    # Scale grasp quality by distance from user input
                     q_values = self.scale_q_values_by_distance_penalty(grasps, q_values, state.tracepen_point_2d, state.camera_intr, state.user_input_fusion_method, state.user_input_weight)
                          
             self._logger.info("Prediction took %.3f sec" %
@@ -1323,13 +1323,13 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
         return grasps, q_values
 
-    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, camera_intrinsics, user_input_fusion_method = "linear_distance_scaling", user_input_weight = "medium"):
+    def scale_q_values_by_distance_penalty(self, grasps, q_values, tracepen_point_2d, camera_intrinsics, user_input_fusion_method = "linear_distance_scaling", user_input_weight = "high"):
         """
         Reduce quality of grasps by distance from tracepen point 
         
         The linear penalty function is f(distance) = 1 - distance/distance_threshold 
 
-        The quadratic penalty function is f(distance) = 1 - 0.5/(distance_threshold²) * distance² 
+        The quadratic penalty function is f(distance) = 1 - 0.3* (distance/distance_threshold) ² 
         
         Parameters
         ----------
@@ -1351,32 +1351,30 @@ class CrossEntropyRobustGraspingPolicy(GraspingPolicy):
 
         # Distance in meters at which the quality is scaled by 0.5.        
         if user_input_weight == "very high":
-            distance_threshold_in_m = 0.005
+            distance_threshold_in_m = 0.005# 0.005
         elif user_input_weight == "high":
-            distance_threshold_in_m = 0.015
+            distance_threshold_in_m = 0.015 # 0.015
         elif user_input_weight == "medium":
-            distance_threshold_in_m = 0.045
+            distance_threshold_in_m = 0.045 # 0.045
         elif user_input_weight == "low":
-            distance_threshold_in_m = 0.135
-        elif user_input_weight == "very low":
-            distance_threshold_in_m = 0.405
+            distance_threshold_in_m = 0.135 # 0.135
         else:
             raise ValueError('Invalid parameter setting. Choose between "low" "medium" and "high" as user_input_weight.')
 
         # transform from meters to pixels
-        depth = 0.7 # [m]; TODO: replace by precise measurement
+        depth = 0.7 # [m]; Dex-Net is trained on objects that are 0.65-0.75m away
         distance_threshold_in_pixels = int(distance_threshold_in_m * camera_intrinsics.K[1,1] / depth)
 
-        euclidian_distances = np.zeros(len(grasps))
+        euclidian_distances_in_pixels = np.zeros(len(grasps))
         q_values_scaled = np.zeros(len(grasps)) # TODO: delete line
         for grasp_idx in range(len(grasps)):
-            euclidian_distances[grasp_idx] = self.calc_distance_grasp_to_user_input(grasps[grasp_idx], tracepen_point_2d)
+            euclidian_distances_in_pixels[grasp_idx] = self.calc_distance_grasp_to_user_input(grasps[grasp_idx], tracepen_point_2d)
 
             # linear penalty = 1 if distance = 0; < 1 if distance > 0
             if user_input_fusion_method == "linear_distance_scaling":
-                distance_penalty = 1 - euclidian_distances[grasp_idx] / distance_threshold_in_pixels 
+                distance_penalty = 1 - 0.3* euclidian_distances_in_pixels[grasp_idx] / distance_threshold_in_pixels 
             if user_input_fusion_method == "quadratic_distance_scaling":
-                distance_penalty = 1 - 0.5 * euclidian_distances[grasp_idx]**2 / distance_threshold_in_pixels**2
+                distance_penalty = 1 - 0.3 * euclidian_distances_in_pixels[grasp_idx]**2 / distance_threshold_in_pixels**2
             q_values_scaled[grasp_idx] = q_values[grasp_idx] * distance_penalty             
             if q_values_scaled[grasp_idx] <= 0: 
                 q_values_scaled[grasp_idx] = 0

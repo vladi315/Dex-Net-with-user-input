@@ -30,6 +30,9 @@ Fully-Convolutional GQ-CNN policy is `cfg/examples/fc_gqcnn_pj.yaml`.
 Author
 ------
 Jeff Mahler & Vishal Satish
+
+Modified by Vladislav Klass vladislavklass@web.de
+
 """
 import argparse
 import json
@@ -43,12 +46,14 @@ from gqcnn.grasping import (CrossEntropyRobustGraspingPolicy,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction,
                             RgbdImageState, RobustGraspingPolicy)
+from gqcnn.grasping.policy.policy import (RgbdImageState,
+                                          RgbdImageStateWithUserInput)
 from gqcnn.utils import GripperMode
 from visualization import Visualizer2D as vis
 
-from fmp_png_to_npy_converter import (convert_depth_to_dexnet_format,
+from png_to_npy_converter import (convert_depth_to_dexnet_format,
                                       convert_png_to_npy)
-from fmp_tracepen_camera_projection import project_tracepen_points_to_image
+from user_input_camera_projection import project_user_input_to_image
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")
@@ -89,7 +94,26 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to camera pose file to use")
-    parser.add_argument("--pen_folder",
+    parser.add_argument("--camera_pose_path",
+                        type=str,
+                        default=None,
+                        help="path to camera pose file to use")
+    parser.add_argument("--user_input_3d_dir",
+                        type=str,
+                        default=None,
+                        help="path to folder containing user_input points to use")
+    parser.add_argument("--user_input_fusion_method",
+                    type=str,
+                    default=None,
+                    help="method how to fuse user_input user input position with grasp pose predictions. \
+                            Choose between \"masking\", \"linear_distance_scaling\" and \"quadratic_distance_scaling\".")
+    parser.add_argument("--user_input_weight",
+                    type=str,
+                    default=None,
+                    help="Controls how strong the effect of the user input is on the final grasp pose prediction. \
+                            Higher values lead to final grasp predictions closer to the user input location. \
+                            Choose between very low, low, medium, high and very high.")
+    parser.add_argument("--user_input_3d_dir",
                         type=str,
                         default=None,
                         help="path to folder containing tracepen points to use")
@@ -108,12 +132,18 @@ if __name__ == "__main__":
     config_filename = args.config_filename
     fully_conv = args.fully_conv
     camera_pose_path = args.camera_pose_path
-    pen_folder = args.pen_folder
+    user_input_3d_dir = args.user_input_3d_dir
 
     assert not (fully_conv and depth_im_filename is not None
                 and segmask_filename is None
                 ), "Fully-Convolutional policy expects a segmask."
+    assert not (user_input_3d_dir is None and (user_input_fusion_method is not None or user_input_weight is not None)
+                ), "If you provide user_input_fusion method or user_input_weight, you also must provide user_input_3d_dir."
+    assert not (depth_ims_dir and depth_im_filename
+                ), "Provide either a depth-ims_dir or a depth im_filename, but not both."
 
+    start = time.time()
+    
     if depth_im_filename is None and depth_ims_dir is None:
         if fully_conv:
             depth_im_filename = os.path.join(
@@ -123,11 +153,7 @@ if __name__ == "__main__":
             depth_im_filename = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "..",
                 "data/examples/single_object/primesense/depth_0.npy")
-    # TODO: delete
-    # if fully_conv and segmask_filename is None:
-    #     segmask_filename = os.path.join(
-    #         os.path.dirname(os.path.realpath(__file__)), "..",
-    #         "data/examples/clutter/primesense/segmask_0.png")
+
     if camera_intr_filename is None:
         camera_intr_filename = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..",
@@ -223,19 +249,25 @@ if __name__ == "__main__":
         else:
             raise ValueError("Invalid policy type: {}".format(policy_type))
 
+    depth_images = []
+    camera_poses = []
+    actions = []
+    states = []
+
     if depth_ims_dir is not None:
         # get all filenames
-        depth_images = []
-        camera_poses = []
-        actions = []
-        states = []
         list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(depth_ims_dir, x)),
-                            os.listdir(depth_ims_dir) ) )
+                            os.listdir(depth_ims_dir)) )
         for file in list_of_files:
             if file.endswith("depth_raw.png"):
                 depth_images.append(depth_ims_dir + file)
             elif file.endswith("pose.txt"):
                 camera_poses.append(depth_ims_dir + file)
+        if len(camera_poses) == 0:
+            print("No camera poses found. Please check that they match the required naming format.")
+        if len(depth_images) == 0:
+            print("No depth images found. Please check that they match the required naming format.")
+ 
     else:
         depth_images = [depth_im_filename]
         camera_poses = [camera_pose_path]
@@ -284,29 +316,26 @@ if __name__ == "__main__":
         # Create state.
         rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
         
-
-        # Optionally read tracepen points and transform them to pixel coordinates
-        # TODO: rename to tracepen_folder
-        if pen_folder is not None: 
-            tracepen_point_2d = project_tracepen_points_to_image(camera_poses[depth_im_idx], pen_folder, camera_intr.K, camera_intr.height, camera_intr.width)
+        if user_input_3d_dir is None: 
+            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
             
-            # Visualize projected tracepen points
-            if policy_config["vis"]["tracepen_projection"] == 1:
+        else:        
+            # Project 3d user input into image plane
+            user_input_point_2d = project_user_input_to_image(camera_poses[depth_im_idx], user_input_3d_dir, camera_intr.K, camera_intr.height, camera_intr.width)
+            # get the right point
+            user_input_point_2d = user_input_point_2d[0:1]
+    
+            # Visualize projected user_input points
+            if policy_config["vis"]["user_input_projection"] == 1:
                 vis.figure(size=(10, 10))
                 vis.imshow(rgbd_im.depth,
                         vmin=policy_config["vis"]["vmin"],
                         vmax=policy_config["vis"]["vmax"])
-                vis.scatter(tracepen_point_2d[0,0], tracepen_point_2d[0,1], c="red")
-                vis.title("Projected tracepen points")
-                vis.show()
+                vis.scatter(user_input_point_2d[0,0], user_input_point_2d[0,1], c="#000000", marker = "x")
+                vis.title("Projected user input points")
+                # vis.show()
 
-            # TODO: create new function RgbdImageTracepenState by inheriting from old
-            state = RgbdImageState(rgbd_im, camera_intr, segmask, tracepen_point_2d=tracepen_point_2d)
-
-        else:
-            state = RgbdImageState(rgbd_im, camera_intr, segmask) 
-
-        
+            state = RgbdImageStateWithUserInput(rgbd_im, camera_intr, segmask, user_input_point_2d, user_input_fusion_method=user_input_fusion_method, user_input_weight=user_input_weight)
 
         # Set input sizes for fully-convolutional policy.
         if fully_conv:
@@ -348,4 +377,3 @@ if __name__ == "__main__":
             action.grasp.depth, action.q_value))
         vis.show()
             
-test = 1

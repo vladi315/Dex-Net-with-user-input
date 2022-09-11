@@ -16,17 +16,10 @@ def convert_png_to_npy(png_path):
     print(image.size)
     print(image.mode)
 
-    
     # np.asarray() class is used to convert
     # PIL images into NumPy arrays
     npy_array = np.asarray(image)
     npy_array = np.float32(npy_array)
-    
-    # <class 'numpy.ndarray'>
-    # print(type(npy_array))
-    
-    #  shape
-    # print(npy_array.shape)
 
     return npy_array
 
@@ -41,14 +34,10 @@ def convert_depth_to_dexnet_format(npy_array):
 
     Convert to 640 x 480  px if necessary beforehand manually!
     """
-    #TODO: RENAME TO "DEPTH"
     npy_array = np.float32(npy_array)
     npy_array = np.expand_dims(npy_array, axis=2) 
     npy_array = npy_array /1000 
 
-    # camera_intr_filename = "data/calib/realsense/realsense.intr"
-    # camera_intr = CameraIntrinsics.load(camera_intr_filename)
-    # depth_im = DepthImage(npy_array, frame=camera_intr.frame)
     return npy_array
 
 
@@ -60,20 +49,6 @@ def save_as_npy(npy_array, npy_path):
     #save 
     np.save(npy_path, npy_array)
 
-
-def main(png_path):
-
-    npy_path = png_path.strip('.png').strip('_raw') # png_path[:-8] + '.npy'
-
-    # convert png to npy format of dexnet
-    npy_array = convert_png_to_npy(png_path)
-    npy_array = convert_depth_to_dexnet_format(npy_array)
-    # show npy image 
-    show_npy_image(npy_array)
-    # save
-    save_as_npy(npy_array, npy_path)
-    return 0
-
 if __name__ == "__main__":
     # Parse args
     parser = argparse.ArgumentParser(
@@ -84,4 +59,12 @@ if __name__ == "__main__":
                         help="path to the .png image")
     args = parser.parse_args()
     png_path = args.png_image
-    main(png_path)
+    npy_path = png_path.strip('.png').strip('_raw') 
+
+    # convert png to npy format of dexnet
+    npy_array = convert_png_to_npy(png_path)
+    npy_array = convert_depth_to_dexnet_format(npy_array)
+    # show npy image 
+    show_npy_image(npy_array)
+    # save
+    save_as_npy(npy_array, npy_path)
