@@ -4,7 +4,7 @@ This is the supporting material for the paper "A Weakly-supervised Labeling Appr
 
 In this video we demonstrate how our approach outperforms a state of the art grasp pose prediction approach (Dex-Net) in an exemplary grasp task:
 
-[![Everything Is AWESOME](https://github.com/vladislav-klass/Dex-Net-with-user-input/blob/main/Comparison_with_Dex_Net.PNG)](https://www.youtube.com/watch?v=XsU60-wqKOw "Robotic Grasp Pose Prediction with User Input")
+[![Robotic Grasp Pose Prediction with User Input](https://github.com/vladislav-klass/Dex-Net-with-user-input/blob/main/Comparison_with_Dex_Net.PNG)](https://www.youtube.com/watch?v=XsU60-wqKOw "Robotic Grasp Pose Prediction with User Input")
 
 ## Installation
 
