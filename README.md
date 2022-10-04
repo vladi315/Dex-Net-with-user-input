@@ -2,6 +2,10 @@
 
 This is the supporting material for the paper "A Weakly-supervised Labeling Approach for Robotic Grasp Teaching and its Effects on Grasp Quality and Operator's Human Factors". Within this repo the code used for fusing the user input together with Dex-Net is provided. Moreover,supplementary materials (i.e., figures, example of test objects) are provided. If you find this work useful please consider citing it.
 
+In this video we demonstrate how our approach outperforms a state of the art grasp pose prediction approach (Dex-Net) in an exemplary grasp task:
+
+[![Everything Is AWESOME](https://www.youtube.com/watch?v=XsU60-wqKOw/0.jpg)](https://www.youtube.com/watch?v=XsU60-wqKOw "Robotic Grasp Pose Prediction with User Input")
+
 ## Installation
 
 ### [DISCLAIMER] Prerequisites for Dex-Net
